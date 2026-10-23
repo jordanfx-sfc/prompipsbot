@@ -162,7 +162,7 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (!txId || typeof txId !== 'string') {
     return res.status(400).json({
       success: false,
-      message: 'Please Fill in the correct transaction ID',
+      message: 'Please enter the correct transaction ID',
     });
   }
 
@@ -173,7 +173,7 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (!hasValidLength || isObviousSpam) {
     return res.status(400).json({
       success: false,
-      message: 'Please Fill in the correct transaction ID',
+      message: 'Please enter the correct transaction ID',
     });
   }
 
@@ -181,7 +181,7 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (db.isTxIdDuplicate(trimmedTx)) {
     return res.status(400).json({
       success: false,
-      message: 'This transaction ID has already been redeemed. Please Fill in the correct transaction ID',
+      message: 'Please enter the correct transaction ID',
     });
   }
 

@@ -48,8 +48,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
     e.preventDefault();
     if (!txIdInput.trim()) {
       setVerificationStatus('failed');
-      // Requirement 5: "Please Fill in the correct transaction ID"
-      setStatusMessage('Please Fill in the correct transaction ID');
+      setStatusMessage('Please enter the correct transaction ID');
       return;
     }
 
@@ -67,11 +66,11 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
         }
       } else {
         setVerificationStatus('failed');
-        setStatusMessage(res.message || 'Please Fill in the correct transaction ID');
+        setStatusMessage(res.message || 'Please enter the correct transaction ID');
       }
     } catch (err: any) {
       setVerificationStatus('failed');
-      setStatusMessage(err.message || 'Please Fill in the correct transaction ID');
+      setStatusMessage(err.message || 'Please enter the correct transaction ID');
     } finally {
       setIsVerifying(false);
     }

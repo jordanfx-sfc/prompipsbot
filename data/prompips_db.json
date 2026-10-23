@@ -11,6 +11,10 @@
       "UHJvbXBpcHNib3NzOjE3OTI3NDkwNDU3NTA6MTc5MjgzNTQ0NTc1MDpjZTkxMDFmYmQ2ZmJmMDk4NDc2NmMxZmVkNmMzMzkxNA.846e333ad56f2bb28af4bf887d636a44b7bd9c9b7b8d01fa7ab88fa73578b46a": {
         "expiresAt": 1792835445681,
         "createdAt": 1792749045681
+      },
+      "UHJvbXBpcHNib3NzOjE3OTI3NTA3NzMxMjU6MTc5MjgzNzE3MzEyNTozNWIxMWM2OWNjOWMwZjBjZGUyYWYwN2NhYWM2MTkzMQ.857593080d2f1cd22a7dea934e0a54675a4db789111e4b9ed2936847ca1cc801": {
+        "expiresAt": 1792837173056,
+        "createdAt": 1792750773056
       }
     },
     "failedAttempts": [],
@@ -53,12 +57,12 @@
       "createdAt": 1792629210798
     },
     {
-      "id": "pm-btc",
-      "name": "Bitcoin (BTC)",
-      "accountHolder": "PROMPIPS Cold Vault",
-      "accountNumberOrAddress": "bc1q9vzp0k2y4k3r2p8w4m9n2q8v9z7x4c2b1a3d",
-      "network": "Bitcoin Native (SegWit)",
-      "instructions": "Send $50 equivalent in BTC. Confirms automatically after 1 block confirmation.",
+      "id": "pm-bep20",
+      "name": "BEP20 (BNB Smart Chain)",
+      "accountHolder": "PROMPIPS Treasury",
+      "accountNumberOrAddress": "",
+      "network": "BEP-20 (BNB Smart Chain)",
+      "instructions": "Send subscription fee via BEP20 (BNB Smart Chain). Awaiting administrator wallet address configuration.",
       "qrCodeUrl": "",
       "enabled": true,
       "createdAt": 1792629210798
@@ -77,6 +81,13 @@
   ],
   "transactions": [],
   "auditLog": [
+    {
+      "id": "6d966cbc-f6af-4a0f-a8a5-f405f7bebfd2",
+      "timestamp": 1792750773126,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
     {
       "id": "8f88a4f0-14e2-439f-a94a-dff1b7df422e",
       "timestamp": 1792749045822,

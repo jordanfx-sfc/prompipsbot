@@ -113,6 +113,9 @@ export default function App() {
             onOpenMT5Modal={() => setIsMT5ModalOpen(true)}
             onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
             onRefreshStatus={loadStatus}
+            onPaymentSuccess={handlePaymentSuccess}
+            onConnectionSuccess={handleConnectionSuccess}
+            onOpenAdminPanel={handleOpenAdminPanel}
           />
         ) : (
           <SettingsView
