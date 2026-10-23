@@ -324,7 +324,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   ADMIN CONTROL CENTER
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                  Prompipsboss
+                  ADMINISTRATOR
                 </span>
               </div>
               <p className="text-xs font-mono text-purple-300/80">
@@ -1033,7 +1033,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                       ADMINISTRATOR CREDENTIALS
                     </h3>
                     <p className="text-xs font-mono text-purple-300/80">
-                      Logged in as username: <strong>Prompipsboss</strong>. Update administrator password securely.
+                      Logged in as Administrator. Update administrator password securely.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">

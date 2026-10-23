@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,9 +13,13 @@ const DATA_DIR = IS_VERCEL
 const DB_FILE = path.resolve(DATA_DIR, 'prompips_db.json');
 const SEED_FILE = path.resolve(__dirname, '../data/prompips_db.json');
 
+// Default bcrypt hash (cost factor 12) for master credentials
+const DEFAULT_ADMIN_PASSWORD_HASH =
+  process.env.ADMIN_PASSWORD_HASH ||
+  '$2b$12$tgkYvlQ1XpBoZxTqxvTd7ekIczq7EbDQC/rcKJsJDiNMHTtEMbZG2';
+
 export interface AdminUser {
   username: string;
-  salt: string;
   passwordHash: string;
   sessions: Record<string, { expiresAt: number; createdAt: number }>;
   failedAttempts: number[];
@@ -86,12 +91,11 @@ export interface DatabaseSchema {
   botSettings: BotSettings;
 }
 
-function hashPassword(password: string, salt: string): string {
-  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
-}
-
 function getSessionSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD || '@Bossprompips1_master_secret_2026';
+  return (
+    process.env.ADMIN_SESSION_SECRET ||
+    'prompips_auth_secret_session_token_key_2026_k98x21a'
+  );
 }
 
 function signSessionToken(username: string): string {
@@ -103,7 +107,10 @@ function signSessionToken(username: string): string {
   return `${Buffer.from(payload).toString('base64url')}.${hmac}`;
 }
 
-function verifySessionToken(token: string, lastLogoutTimestamp?: number | null): { valid: boolean; username?: string } {
+function verifySessionToken(
+  token: string,
+  lastLogoutTimestamp?: number | null
+): { valid: boolean; username?: string } {
   if (!token || !token.includes('.')) return { valid: false };
   const [b64Payload, hmac] = token.split('.');
   if (!b64Payload || !hmac) return { valid: false };
@@ -133,15 +140,12 @@ function verifySessionToken(token: string, lastLogoutTimestamp?: number | null):
 }
 
 function generateInitialDatabase(): DatabaseSchema {
-  const initialPassword = process.env.ADMIN_PASSWORD || '@Bossprompips1';
   const initialUsername = process.env.ADMIN_USERNAME || 'Prompipsboss';
-  const salt = crypto.randomBytes(16).toString('hex');
-  const passwordHash = hashPassword(initialPassword, salt);
+  const passwordHash = DEFAULT_ADMIN_PASSWORD_HASH;
 
   return {
     admin: {
       username: initialUsername,
-      salt,
       passwordHash,
       sessions: {},
       failedAttempts: [],
@@ -250,13 +254,19 @@ class DatabaseManager {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        // Ensure all required fields exist
         if (parsed.admin && parsed.settings && parsed.pricing) {
+          // Upgrade schema to bcrypt hash if needed
+          if (!parsed.admin.passwordHash || !parsed.admin.passwordHash.startsWith('$2')) {
+            parsed.admin.passwordHash = DEFAULT_ADMIN_PASSWORD_HASH;
+          }
           return parsed;
         }
       } else if (IS_VERCEL && fs.existsSync(SEED_FILE)) {
         const raw = fs.readFileSync(SEED_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
+        if (!parsed.admin.passwordHash || !parsed.admin.passwordHash.startsWith('$2')) {
+          parsed.admin.passwordHash = DEFAULT_ADMIN_PASSWORD_HASH;
+        }
         this.save(parsed);
         return parsed;
       }
@@ -289,53 +299,13 @@ class DatabaseManager {
     return { locked: false, remainingMinutes: 0 };
   }
 
-  public authenticateAdmin(username: string, password: string): { success: boolean; token?: string; error?: string } {
+  public authenticateAdmin(
+    username: string,
+    password: string
+  ): { success: boolean; token?: string; error?: string } {
     const now = Date.now();
-    const configuredUsername = process.env.ADMIN_USERNAME || this.data.admin.username || 'Prompipsboss';
-    // Exact match for username
-    const isUsernameMatch = username === configuredUsername;
 
-    const masterPassword = process.env.ADMIN_PASSWORD || '@Bossprompips1';
-    let isPasswordMatch = false;
-
-    // Check 1: Direct comparison against master configured password
-    if (password === masterPassword) {
-      isPasswordMatch = true;
-      // Ensure stored password hash matches master credentials
-      if (!this.data.admin.salt) {
-        this.data.admin.salt = crypto.randomBytes(16).toString('hex');
-      }
-      this.data.admin.passwordHash = hashPassword(masterPassword, this.data.admin.salt);
-    } else if (this.data.admin.passwordHash && this.data.admin.salt) {
-      // Check 2: PBKDF2 hash comparison (e.g. if updated via Admin Panel)
-      const computedHash = hashPassword(password, this.data.admin.salt);
-      const computedBuf = Buffer.from(computedHash, 'utf-8');
-      const storedBuf = Buffer.from(this.data.admin.passwordHash, 'utf-8');
-      if (computedBuf.length === storedBuf.length) {
-        isPasswordMatch = crypto.timingSafeEqual(computedBuf, storedBuf);
-      }
-    }
-
-    if (isUsernameMatch && isPasswordMatch) {
-      // Lockout recovery: correct credentials clear any failed attempts and lockout
-      this.data.admin.failedAttempts = [];
-      this.data.admin.lockoutUntil = null;
-
-      // Create secure signed session token (verifiable across serverless instances and cold starts)
-      const token = signSessionToken(configuredUsername);
-      const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
-      if (!this.data.admin.sessions) {
-        this.data.admin.sessions = {};
-      }
-      this.data.admin.sessions[token] = { expiresAt, createdAt: now };
-
-      this.addAuditLog('ADMIN_LOGIN', 'Administrator successfully logged into control center.', configuredUsername);
-      this.save();
-
-      return { success: true, token };
-    }
-
-    // Check lockout for failed attempts
+    // Check lockout first
     const lockout = this.isLockedOut();
     if (lockout.locked) {
       return {
@@ -344,29 +314,82 @@ class DatabaseManager {
       };
     }
 
-    // Clean failed attempts older than 15 mins
+    const configuredUsername =
+      process.env.ADMIN_USERNAME || this.data.admin.username || 'Prompipsboss';
+    const isUsernameMatch = username === configuredUsername;
+
+    // Secure password comparison using bcrypt
+    const storedHash = this.data.admin.passwordHash || DEFAULT_ADMIN_PASSWORD_HASH;
+    let isPasswordMatch = false;
+
+    if (process.env.ADMIN_PASSWORD) {
+      isPasswordMatch = password === process.env.ADMIN_PASSWORD;
+    } else {
+      try {
+        isPasswordMatch = bcrypt.compareSync(password, storedHash);
+      } catch {
+        isPasswordMatch = false;
+      }
+    }
+
+    // Dummy compare to prevent timing side-channels if username is wrong
+    if (!isUsernameMatch && isPasswordMatch) {
+      try {
+        bcrypt.compareSync(password, DEFAULT_ADMIN_PASSWORD_HASH);
+      } catch {
+        // ignore
+      }
+    }
+
+    if (isUsernameMatch && isPasswordMatch) {
+      // Clear failed attempts upon successful login
+      this.data.admin.failedAttempts = [];
+      this.data.admin.lockoutUntil = null;
+
+      // Create signed session token
+      const token = signSessionToken(configuredUsername);
+      const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
+      if (!this.data.admin.sessions) {
+        this.data.admin.sessions = {};
+      }
+      this.data.admin.sessions[token] = { expiresAt, createdAt: now };
+
+      this.addAuditLog('ADMIN_LOGIN', 'Administrator successfully authenticated.', 'Administrator');
+      this.save();
+
+      return { success: true, token };
+    }
+
+    // Record failed attempt
     const fifteenMinsAgo = now - 15 * 60 * 1000;
-    this.data.admin.failedAttempts = (this.data.admin.failedAttempts || []).filter((t) => t > fifteenMinsAgo);
+    this.data.admin.failedAttempts = (this.data.admin.failedAttempts || []).filter(
+      (t) => t > fifteenMinsAgo
+    );
     this.data.admin.failedAttempts.push(now);
 
     if (this.data.admin.failedAttempts.length >= 5) {
       this.data.admin.lockoutUntil = now + 15 * 60 * 1000; // 15 min lockout
-      this.addAuditLog('ADMIN_LOCKOUT', '5 failed login attempts recorded; locked out for 15 minutes.', 'SECURITY');
+      this.addAuditLog(
+        'ADMIN_LOCKOUT',
+        '5 failed login attempts recorded; locked out for 15 minutes.',
+        'SECURITY'
+      );
     }
     this.save();
-    return { success: false, error: 'Invalid administrator credentials.' };
+
+    return { success: false, error: 'Invalid username or password.' };
   }
 
   public validateSession(token: string): boolean {
     if (!token) return false;
 
-    // Cryptographic signature & expiration validation (works across all Vercel serverless cold starts)
+    // Cryptographic signature & expiration validation
     const verified = verifySessionToken(token, this.data.admin.lastLogoutTimestamp);
     if (verified.valid) {
       return true;
     }
 
-    // Secondary map check for legacy or in-memory sessions
+    // Secondary map check
     if (this.data.admin.sessions && this.data.admin.sessions[token]) {
       const session = this.data.admin.sessions[token];
       if (Date.now() <= session.expiresAt) {
@@ -385,15 +408,14 @@ class DatabaseManager {
     if (this.data.admin.sessions && this.data.admin.sessions[token]) {
       delete this.data.admin.sessions[token];
     }
-    this.addAuditLog('ADMIN_LOGOUT', 'Administrator session ended.', this.data.admin.username);
+    this.addAuditLog('ADMIN_LOGOUT', 'Administrator session terminated.', 'Administrator');
     this.save();
   }
 
   public updateAdminPassword(newPassword: string, actor: string): boolean {
-    const salt = crypto.randomBytes(16).toString('hex');
-    this.data.admin.salt = salt;
-    this.data.admin.passwordHash = hashPassword(newPassword, salt);
-    this.addAuditLog('PASSWORD_CHANGED', 'Administrator password was updated.', actor);
+    const passwordHash = bcrypt.hashSync(newPassword, 12);
+    this.data.admin.passwordHash = passwordHash;
+    this.addAuditLog('PASSWORD_CHANGED', 'Administrator password was updated and re-hashed.', actor);
     this.save();
     return true;
   }
@@ -410,7 +432,6 @@ class DatabaseManager {
     };
     if (!this.data.auditLog) this.data.auditLog = [];
     this.data.auditLog.unshift(entry);
-    // Keep last 150 entries
     if (this.data.auditLog.length > 150) {
       this.data.auditLog = this.data.auditLog.slice(0, 150);
     }

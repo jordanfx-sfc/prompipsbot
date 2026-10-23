@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Eye, EyeOff, Lock, AlertCircle, X, RefreshCw, KeyRound } from 'lucide-react';
+import { ShieldCheck, Eye, EyeOff, AlertCircle, X, RefreshCw, KeyRound } from 'lucide-react';
 import { adminLogin } from '../services/api';
 
 interface AdminLoginModalProps {
@@ -9,7 +9,7 @@ interface AdminLoginModalProps {
 }
 
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [username, setUsername] = useState('Prompipsboss');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -21,12 +21,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!username.trim()) {
-      setErrorMessage('Please enter the administrator username.');
-      return;
-    }
-    if (!password) {
-      setErrorMessage('Please enter the administrator password.');
+    if (!username.trim() || !password) {
+      setErrorMessage('Invalid username or password.');
       return;
     }
 
@@ -34,12 +30,20 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
     try {
       await adminLogin(username.trim(), password);
       setPassword('');
+      setUsername('');
       onLoginSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Invalid administrator credentials.');
+      setErrorMessage(err.message || 'Invalid username or password.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setUsername('');
+    setPassword('');
+    setErrorMessage(null);
+    onClose();
   };
 
   return (
@@ -61,7 +65,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
@@ -86,7 +90,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Prompipsboss"
+              placeholder="Enter username"
               autoComplete="username"
               className="w-full h-11 px-4 rounded-xl bg-[#061e28]/80 border border-purple-600/60 focus:border-[#00f2fe] focus:outline-none focus:ring-1 focus:ring-[#00f2fe] font-mono text-sm text-cyan-100 placeholder:text-slate-500 transition-all"
             />
@@ -101,7 +105,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter administrator password"
+                placeholder="Enter password"
                 autoComplete="current-password"
                 className="w-full h-11 pl-4 pr-11 rounded-xl bg-[#061e28]/80 border border-purple-600/60 focus:border-[#00f2fe] focus:outline-none focus:ring-1 focus:ring-[#00f2fe] font-mono text-sm text-cyan-100 placeholder:text-slate-500 transition-all"
               />
@@ -141,7 +145,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="w-full py-2 text-center text-xs text-purple-400 hover:text-purple-200 transition-colors"
             >
               Cancel & Return

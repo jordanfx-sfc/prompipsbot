@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cookieParser from 'cookie-parser';
 import { db } from './db.js';
 
 // Ephemeral runtime state for active visitor session
@@ -25,16 +26,23 @@ export const runtimeState: SessionRuntimeState = {
   tradingBackendAttached: false,
 };
 
-// Middleware: Authenticate Administrator via Bearer Token
+// Middleware: Authenticate Administrator via HttpOnly Cookie or Bearer Token
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  let token: string | null = null;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.admin_session) {
+    token = req.cookies.admin_session;
+  }
+
+  if (!token) {
     return res.status(401).json({
       success: false,
-      message: 'Unauthorized: Administrator authentication token required.',
+      message: 'Unauthorized: Administrator authentication required.',
     });
   }
-  const token = authHeader.split(' ')[1];
+
   if (!db.validateSession(token)) {
     return res.status(401).json({
       success: false,
@@ -45,8 +53,42 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+// IP-based Login Rate Limiter
+const ipRateLimitMap = new Map<string, { attempts: number; lockoutUntil: number }>();
+
+function checkIpRateLimit(ip: string): { allowed: boolean; remainingMinutes?: number } {
+  const now = Date.now();
+  const record = ipRateLimitMap.get(ip);
+  if (!record) return { allowed: true };
+
+  if (record.lockoutUntil > now) {
+    const remaining = Math.ceil((record.lockoutUntil - now) / 60000);
+    return { allowed: false, remainingMinutes: remaining };
+  }
+
+  if (record.lockoutUntil <= now && record.lockoutUntil > 0) {
+    ipRateLimitMap.delete(ip);
+  }
+  return { allowed: true };
+}
+
+function recordFailedIpAttempt(ip: string) {
+  const now = Date.now();
+  const record = ipRateLimitMap.get(ip) || { attempts: 0, lockoutUntil: 0 };
+  record.attempts += 1;
+  if (record.attempts >= 5) {
+    record.lockoutUntil = now + 15 * 60 * 1000; // 15 mins
+  }
+  ipRateLimitMap.set(ip, record);
+}
+
+function resetIpAttempt(ip: string) {
+  ipRateLimitMap.delete(ip);
+}
+
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
 // Router for all API routes (mounted at /api and at root for Vercel serverless flexibility)
 const router = express.Router();
@@ -277,35 +319,69 @@ router.post('/bot/stop', (req: Request, res: Response) => {
 
 // Admin Login
 router.post('/admin/login', (req: Request, res: Response) => {
+  const clientIp =
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req.ip ||
+    '127.0.0.1';
+
+  const rateCheck = checkIpRateLimit(clientIp);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({
+      success: false,
+      error: `Too many failed login attempts. Please try again in ${rateCheck.remainingMinutes} minutes.`,
+    });
+  }
+
   const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({
+  if (
+    !username ||
+    typeof username !== 'string' ||
+    !username.trim() ||
+    !password ||
+    typeof password !== 'string'
+  ) {
+    recordFailedIpAttempt(clientIp);
+    return res.status(401).json({
       success: false,
-      error: 'Username and password are required.',
+      error: 'Invalid username or password.',
     });
   }
 
-  const authResult = db.authenticateAdmin(username, password);
+  const authResult = db.authenticateAdmin(username.trim(), password);
   if (!authResult.success) {
+    recordFailedIpAttempt(clientIp);
     return res.status(401).json({
       success: false,
-      error: authResult.error || 'Invalid administrator credentials.',
+      error: 'Invalid username or password.',
     });
   }
+
+  resetIpAttempt(clientIp);
+
+  // Set secure HttpOnly session cookie
+  res.cookie('admin_session', authResult.token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+    path: '/',
+  });
 
   return res.json({
     success: true,
     token: authResult.token,
-    username: 'Prompipsboss',
     message: 'Administrator authenticated successfully.',
   });
 });
 
 // Admin Logout
-router.post('/admin/logout', requireAdmin, (req: Request, res: Response) => {
-  const token = (req as any).adminToken;
-  db.destroySession(token);
+router.post('/admin/logout', (req: Request, res: Response) => {
+  const token = (req as any).adminToken || req.cookies?.admin_session;
+  if (token) {
+    db.destroySession(token);
+  }
+  res.clearCookie('admin_session', { path: '/' });
   return res.json({
     success: true,
     message: 'Administrator logged out successfully.',
@@ -317,7 +393,6 @@ router.get('/admin/session', requireAdmin, (req: Request, res: Response) => {
   res.json({
     success: true,
     authenticated: true,
-    username: 'Prompipsboss',
   });
 });
 
@@ -359,7 +434,7 @@ router.post('/admin/settings', requireAdmin, (req: Request, res: Response) => {
       telegramSupport: telegramSupport ? String(telegramSupport).trim() : undefined,
       otherSupport: otherSupport ? String(otherSupport).trim() : undefined,
     },
-    'Prompipsboss'
+    'Administrator'
   );
   res.json({
     success: true,
@@ -379,7 +454,7 @@ router.post('/admin/pricing', requireAdmin, (req: Request, res: Response) => {
     });
   }
 
-  const updated = db.updatePricing(numPrice, currency || 'USD', 'Prompipsboss');
+  const updated = db.updatePricing(numPrice, currency || 'USD', 'Administrator');
   res.json({
     success: true,
     message: `Subscription price successfully updated to $${updated.price} ${updated.currency}.`,
@@ -408,7 +483,7 @@ router.post('/admin/payment-methods', requireAdmin, (req: Request, res: Response
       qrCodeUrl: qrCodeUrl ? String(qrCodeUrl).trim() : '',
       enabled: enabled !== undefined ? Boolean(enabled) : true,
     },
-    'Prompipsboss'
+    'Administrator'
   );
 
   res.json({
@@ -433,7 +508,7 @@ router.put('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Respo
       ...(qrCodeUrl !== undefined && { qrCodeUrl: String(qrCodeUrl).trim() }),
       ...(enabled !== undefined && { enabled: Boolean(enabled) }),
     },
-    'Prompipsboss'
+    'Administrator'
   );
 
   if (!updated) {
@@ -449,7 +524,7 @@ router.put('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Respo
 
 router.delete('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Response) => {
   const { id } = req.params;
-  const deleted = db.deletePaymentMethod(id, 'Prompipsboss');
+  const deleted = db.deletePaymentMethod(id, 'Administrator');
   if (!deleted) {
     return res.status(404).json({ success: false, message: 'Payment method not found.' });
   }
@@ -462,7 +537,7 @@ router.delete('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Re
 router.patch('/admin/payment-methods/:id/toggle', requireAdmin, (req: Request, res: Response) => {
   const { id } = req.params;
   const { enabled } = req.body;
-  const updated = db.togglePaymentMethod(id, Boolean(enabled), 'Prompipsboss');
+  const updated = db.togglePaymentMethod(id, Boolean(enabled), 'Administrator');
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Payment method not found.' });
   }
@@ -485,7 +560,7 @@ router.patch('/admin/transactions/:id/status', requireAdmin, (req: Request, res:
     });
   }
 
-  const updated = db.updateTransactionStatus(id, status, 'Prompipsboss', notes);
+  const updated = db.updateTransactionStatus(id, status, 'Administrator', notes);
   if (!updated) {
     return res.status(404).json({ success: false, message: 'Transaction record not found.' });
   }
@@ -518,7 +593,7 @@ router.post('/admin/bot-settings', requireAdmin, (req: Request, res: Response) =
       ...(mt5IntegrationStatus !== undefined && { mt5IntegrationStatus: String(mt5IntegrationStatus).trim() }),
       ...(publicStatusMessage !== undefined && { publicStatusMessage: String(publicStatusMessage).trim() }),
     },
-    'Prompipsboss'
+    'Administrator'
   );
 
   res.json({
@@ -542,7 +617,7 @@ router.post('/admin/toggle-backend', requireAdmin, (req: Request, res: Response)
   db.addAuditLog(
     'BRIDGE_TOGGLE',
     `Live execution microservice bridge set to ${runtimeState.tradingBackendAttached ? 'ONLINE' : 'OFFLINE'}`,
-    'Prompipsboss'
+    'Administrator'
   );
 
   return res.json({
@@ -564,7 +639,7 @@ router.post('/admin/change-password', requireAdmin, (req: Request, res: Response
     });
   }
 
-  db.updateAdminPassword(newPassword, 'Prompipsboss');
+  db.updateAdminPassword(newPassword, 'Administrator');
   return res.json({
     success: true,
     message: 'Administrator password changed successfully.',

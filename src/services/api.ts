@@ -42,7 +42,9 @@ function getAuthHeaders(): HeadersInit {
 // --- PUBLIC APIS ---
 
 export async function fetchEngineStatus(): Promise<EngineStatusData> {
-  const res = await fetch('/api/engine/status');
+  const res = await fetch('/api/engine/status', {
+    credentials: 'include',
+  });
   if (!res.ok) {
     throw new Error('Failed to fetch system status from backend.');
   }
@@ -58,6 +60,7 @@ export async function connectMT5(creds: MT5Credentials): Promise<{
   const res = await fetch('/api/mt5/connect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(creds),
   });
   const json = await res.json();
@@ -71,6 +74,7 @@ export async function disconnectMT5(): Promise<{ success: boolean; message: stri
   const res = await fetch('/api/mt5/disconnect', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
   });
   const json = await res.json();
   return json;
@@ -87,11 +91,12 @@ export async function verifyPaymentTxId(
   const res = await fetch('/api/verify-payment', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ txId, paymentMethodName }),
   });
   const json = await res.json();
   if (!res.ok) {
-    throw new Error(json.message || 'Please Fill in the correct transaction ID');
+    throw new Error(json.message || 'Please enter the correct transaction ID');
   }
   return json;
 }
@@ -100,6 +105,7 @@ export async function startBot(): Promise<{ success: boolean; message: string; d
   const res = await fetch('/api/bot/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
   });
   const json = await res.json();
   if (!res.ok) {
@@ -114,6 +120,7 @@ export async function stopBot(): Promise<{ success: boolean; message: string }> 
   const res = await fetch('/api/bot/stop', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
   });
   const json = await res.json();
   if (!res.ok) {
@@ -127,15 +134,16 @@ export async function stopBot(): Promise<{ success: boolean; message: string }> 
 export async function adminLogin(
   username: string,
   password: string
-): Promise<{ success: boolean; token: string; username: string }> {
+): Promise<{ success: boolean; token: string }> {
   const res = await fetch('/api/admin/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ username, password }),
   });
   const json = await res.json();
   if (!res.ok) {
-    throw new Error(json.error || json.message || 'Invalid administrator credentials.');
+    throw new Error(json.error || json.message || 'Invalid username or password.');
   }
   setStoredAdminToken(json.token);
   return json;
@@ -146,6 +154,7 @@ export async function adminLogout(): Promise<{ success: boolean; message: string
     const res = await fetch('/api/admin/logout', {
       method: 'POST',
       headers: getAuthHeaders(),
+      credentials: 'include',
     });
     setStoredAdminToken(null);
     return await res.json();
@@ -157,12 +166,17 @@ export async function adminLogout(): Promise<{ success: boolean; message: string
 
 export async function checkAdminSession(): Promise<boolean> {
   const token = getStoredAdminToken();
-  if (!token) return false;
   try {
     const res = await fetch('/api/admin/session', {
       headers: getAuthHeaders(),
+      credentials: 'include',
     });
-    return res.ok;
+    if (res.ok) {
+      return true;
+    }
+    // If not authenticated, clear local token
+    setStoredAdminToken(null);
+    return false;
   } catch {
     return false;
   }
@@ -173,6 +187,7 @@ export async function checkAdminSession(): Promise<boolean> {
 export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   const res = await fetch('/api/admin/dashboard-data', {
     headers: getAuthHeaders(),
+    credentials: 'include',
   });
   if (!res.ok) {
     throw new Error('Unauthorized or session expired. Please log in again.');
@@ -185,6 +200,7 @@ export async function saveAdminSettings(settings: Partial<WebsiteSettings>): Pro
   const res = await fetch('/api/admin/settings', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify(settings),
   });
   const json = await res.json();
@@ -196,6 +212,7 @@ export async function saveAdminPricing(price: number, currency: string = 'USD'):
   const res = await fetch('/api/admin/pricing', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ price, currency }),
   });
   const json = await res.json();
@@ -209,6 +226,7 @@ export async function addAdminPaymentMethod(
   const res = await fetch('/api/admin/payment-methods', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify(method),
   });
   const json = await res.json();
@@ -223,6 +241,7 @@ export async function updateAdminPaymentMethod(
   const res = await fetch(`/api/admin/payment-methods/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify(method),
   });
   const json = await res.json();
@@ -234,6 +253,7 @@ export async function deleteAdminPaymentMethod(id: string): Promise<boolean> {
   const res = await fetch(`/api/admin/payment-methods/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
+    credentials: 'include',
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || 'Failed to delete payment method.');
@@ -244,6 +264,7 @@ export async function toggleAdminPaymentMethod(id: string, enabled: boolean): Pr
   const res = await fetch(`/api/admin/payment-methods/${id}/toggle`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ enabled }),
   });
   const json = await res.json();
@@ -259,6 +280,7 @@ export async function updateAdminTransactionStatus(
   const res = await fetch(`/api/admin/transactions/${id}/status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ status, notes }),
   });
   const json = await res.json();
@@ -270,6 +292,7 @@ export async function saveAdminBotSettings(settings: Partial<BotSettings>): Prom
   const res = await fetch('/api/admin/bot-settings', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify(settings),
   });
   const json = await res.json();
@@ -285,6 +308,7 @@ export async function toggleAdminBackendBridge(attached?: boolean): Promise<{
   const res = await fetch('/api/admin/toggle-backend', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ attached }),
   });
   const json = await res.json();
@@ -296,6 +320,7 @@ export async function changeAdminPassword(newPassword: string): Promise<void> {
   const res = await fetch('/api/admin/change-password', {
     method: 'POST',
     headers: getAuthHeaders(),
+    credentials: 'include',
     body: JSON.stringify({ newPassword }),
   });
   const json = await res.json();

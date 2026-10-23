@@ -1,25 +1,11 @@
 {
   "admin": {
     "username": "Prompipsboss",
-    "salt": "00dfbc60acfeec8a7bebee4737cca599",
-    "passwordHash": "cfc70c849dd7edcd2b7475dfc1d30cdbe4e7718f033c46a3349d7466784dbb2647ddbe26767abfd77122e67f989af8f203581d9a60781f5186e549bc7f1723d2",
-    "sessions": {
-      "UHJvbXBpcHNib3NzOjE3OTI3NDkwMzgzNTI6MTc5MjgzNTQzODM1MjphYWRkODZiOWNlZmZiZTA0ODZiNTY0N2FhNzViMzk4MQ.3ffc0cbe7ab2ef6126798e400e84aa83e89c8a5d743eac5c114b067562aa9ce6": {
-        "expiresAt": 1792835438285,
-        "createdAt": 1792749038285
-      },
-      "UHJvbXBpcHNib3NzOjE3OTI3NDkwNDU3NTA6MTc5MjgzNTQ0NTc1MDpjZTkxMDFmYmQ2ZmJmMDk4NDc2NmMxZmVkNmMzMzkxNA.846e333ad56f2bb28af4bf887d636a44b7bd9c9b7b8d01fa7ab88fa73578b46a": {
-        "expiresAt": 1792835445681,
-        "createdAt": 1792749045681
-      },
-      "UHJvbXBpcHNib3NzOjE3OTI3NTA3NzMxMjU6MTc5MjgzNzE3MzEyNTozNWIxMWM2OWNjOWMwZjBjZGUyYWYwN2NhYWM2MTkzMQ.857593080d2f1cd22a7dea934e0a54675a4db789111e4b9ed2936847ca1cc801": {
-        "expiresAt": 1792837173056,
-        "createdAt": 1792750773056
-      }
-    },
+    "passwordHash": "$2b$12$tgkYvlQ1XpBoZxTqxvTd7ekIczq7EbDQC/rcKJsJDiNMHTtEMbZG2",
+    "sessions": {},
     "failedAttempts": [],
     "lockoutUntil": null,
-    "lastLogoutTimestamp": 1792749038254
+    "lastLogoutTimestamp": 1792751771027
   },
   "settings": {
     "websiteName": "PROMPIPS BOT",
@@ -81,6 +67,20 @@
   ],
   "transactions": [],
   "auditLog": [
+    {
+      "id": "3b53f929-8e24-496b-9291-4e331676aba9",
+      "timestamp": 1792751771027,
+      "action": "ADMIN_LOGOUT",
+      "details": "Administrator session terminated.",
+      "actor": "Administrator"
+    },
+    {
+      "id": "e233205c-4e8f-4cd0-8c38-cf7495de42ba",
+      "timestamp": 1792751764245,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully authenticated.",
+      "actor": "Administrator"
+    },
     {
       "id": "6d966cbc-f6af-4a0f-a8a5-f405f7bebfd2",
       "timestamp": 1792750773126,
