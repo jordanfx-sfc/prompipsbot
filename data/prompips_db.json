@@ -1,0 +1,140 @@
+{
+  "admin": {
+    "username": "Prompipsboss",
+    "salt": "e146a3d5ddad1d32595130c44d8d5120",
+    "passwordHash": "bc6f4c7c653edefc4a1c2af7ba7a25e828e6bea769e93293197286241df379e74309f12f1ebe9167364b9c50986deb368c7e37c2caf7590c210862438a555cc5",
+    "sessions": {
+      "7955f753a5f21c1ed445cc1b2533a38213f732d2aa94fbff15db7056f64006a7": {
+        "expiresAt": 1792802025421,
+        "createdAt": 1792715625421
+      },
+      "681aa1f1c42ca0e85ee44bb724f135a54eb2def38b8b37ef7fe1d50eb5d3d111": {
+        "expiresAt": 1792802034865,
+        "createdAt": 1792715634865
+      },
+      "6cbfa89187a64c6b67ba54836f8c065dbffaf2cba6766edb8f037cd7cfba337c": {
+        "expiresAt": 1792802040169,
+        "createdAt": 1792715640169
+      }
+    },
+    "failedAttempts": [],
+    "lockoutUntil": null
+  },
+  "settings": {
+    "websiteName": "PROMPIPS BOT",
+    "websiteDescription": "High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification.",
+    "contactEmail": "support@prompipsbot.com",
+    "whatsappSupport": "+1 (555) 789-2041",
+    "telegramSupport": "@prompips_official",
+    "otherSupport": "24/7 VIP Automated Strategy Desk & Account Support"
+  },
+  "pricing": {
+    "price": 50,
+    "currency": "USD"
+  },
+  "paymentMethods": [
+    {
+      "id": "pm-usdt-trc20",
+      "name": "USDT (TRC20)",
+      "accountHolder": "PROMPIPS Treasury",
+      "accountNumberOrAddress": "TYDnm7x9vQP3L4u1kQ2V8s8P7oF4Y9wK1b",
+      "network": "TRC-20 (Tron Network)",
+      "instructions": "Send exactly $50 USDT via TRC20 network. Zero or near-zero gas fee. Copy TXID from your wallet after sending.",
+      "qrCodeUrl": "",
+      "enabled": true,
+      "createdAt": 1792629210798
+    },
+    {
+      "id": "pm-usdt-erc20",
+      "name": "USDT (ERC20 / Polygon)",
+      "accountHolder": "PROMPIPS Multi-Sig",
+      "accountNumberOrAddress": "0x892a0572e92c2b3e8c9b2f768b446a6e789bc44d",
+      "network": "Ethereum / Polygon EVM",
+      "instructions": "Send $50 USDT to this EVM address. Ensure you select either Ethereum or Polygon network.",
+      "qrCodeUrl": "",
+      "enabled": true,
+      "createdAt": 1792629210798
+    },
+    {
+      "id": "pm-btc",
+      "name": "Bitcoin (BTC)",
+      "accountHolder": "PROMPIPS Cold Vault",
+      "accountNumberOrAddress": "bc1q9vzp0k2y4k3r2p8w4m9n2q8v9z7x4c2b1a3d",
+      "network": "Bitcoin Native (SegWit)",
+      "instructions": "Send $50 equivalent in BTC. Confirms automatically after 1 block confirmation.",
+      "qrCodeUrl": "",
+      "enabled": true,
+      "createdAt": 1792629210798
+    },
+    {
+      "id": "pm-momo",
+      "name": "Mobile Money / Bank Wire",
+      "accountHolder": "Michael Mukiibi (PROMPIPS Finance)",
+      "accountNumberOrAddress": "+256 772 890 142 / Stanbic 90300189402",
+      "network": "MTN / Airtel Mobile Money / Bank Transfer",
+      "instructions": "Send $50 equivalent (or local currency). Set reference as \"PROMPIPS-BOT\". Paste transfer transaction code below.",
+      "qrCodeUrl": "",
+      "enabled": true,
+      "createdAt": 1792629210798
+    }
+  ],
+  "transactions": [],
+  "auditLog": [
+    {
+      "id": "9987b4a8-d40a-4513-b9ca-d2c653fcf736",
+      "timestamp": 1792715640274,
+      "action": "BOT_SETTINGS_UPDATE",
+      "details": "Updated bot settings: botActivationEnabled",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "8461d0b4-983b-4eab-91e8-ca24ce6a1f86",
+      "timestamp": 1792715640252,
+      "action": "BOT_SETTINGS_UPDATE",
+      "details": "Updated bot settings: botActivationEnabled",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "2e21a74b-fd88-43de-b3aa-9efe0272363a",
+      "timestamp": 1792715640237,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "055e3474-9297-4dcb-91f7-cb25cc13f894",
+      "timestamp": 1792715634955,
+      "action": "PRICING_UPDATE",
+      "details": "Changed subscription price from $50 to $50 USD",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "fe02fa76-b6fe-42f2-9651-7c3b647ceaf6",
+      "timestamp": 1792715634935,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "bcea969e-bdaa-42f4-a4f4-61c0b2224756",
+      "timestamp": 1792715625488,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "d788d5f9-52f8-46a6-8966-475d6e38bc64",
+      "timestamp": 1792715610799,
+      "action": "SYSTEM_INITIALIZATION",
+      "details": "Initialized PROMPIPS BOT persistent database and admin credentials.",
+      "actor": "SYSTEM"
+    }
+  ],
+  "botSettings": {
+    "displayName": "PROMPIPS BOT Core v4.2",
+    "botStatus": "Standby",
+    "botActivationEnabled": true,
+    "mt5IntegrationStatus": "Operational Gateway",
+    "publicStatusMessage": "Quantitative scalping algorithmic engine is primed for execution."
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "PROMPIPS BOT — Automated Trading Engine",
+  "description": "High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
