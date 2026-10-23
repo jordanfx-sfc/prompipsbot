@@ -5,8 +5,12 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../data');
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = IS_VERCEL
+  ? path.resolve('/tmp', 'prompips_data')
+  : path.resolve(__dirname, '../data');
 const DB_FILE = path.resolve(DATA_DIR, 'prompips_db.json');
+const SEED_FILE = path.resolve(__dirname, '../data/prompips_db.json');
 
 export interface AdminUser {
   username: string;
@@ -202,11 +206,13 @@ class DatabaseManager {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
         // Ensure all required fields exist
-        if (!parsed.admin || !parsed.settings || !parsed.pricing) {
-          const fresh = generateInitialDatabase();
-          this.save(fresh);
-          return fresh;
+        if (parsed.admin && parsed.settings && parsed.pricing) {
+          return parsed;
         }
+      } else if (IS_VERCEL && fs.existsSync(SEED_FILE)) {
+        const raw = fs.readFileSync(SEED_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        this.save(parsed);
         return parsed;
       }
     } catch (err) {
