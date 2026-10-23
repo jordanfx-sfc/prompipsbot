@@ -1,24 +1,21 @@
 {
   "admin": {
     "username": "Prompipsboss",
-    "salt": "e146a3d5ddad1d32595130c44d8d5120",
-    "passwordHash": "bc6f4c7c653edefc4a1c2af7ba7a25e828e6bea769e93293197286241df379e74309f12f1ebe9167364b9c50986deb368c7e37c2caf7590c210862438a555cc5",
+    "salt": "00dfbc60acfeec8a7bebee4737cca599",
+    "passwordHash": "cfc70c849dd7edcd2b7475dfc1d30cdbe4e7718f033c46a3349d7466784dbb2647ddbe26767abfd77122e67f989af8f203581d9a60781f5186e549bc7f1723d2",
     "sessions": {
-      "7955f753a5f21c1ed445cc1b2533a38213f732d2aa94fbff15db7056f64006a7": {
-        "expiresAt": 1792802025421,
-        "createdAt": 1792715625421
+      "UHJvbXBpcHNib3NzOjE3OTI3NDkwMzgzNTI6MTc5MjgzNTQzODM1MjphYWRkODZiOWNlZmZiZTA0ODZiNTY0N2FhNzViMzk4MQ.3ffc0cbe7ab2ef6126798e400e84aa83e89c8a5d743eac5c114b067562aa9ce6": {
+        "expiresAt": 1792835438285,
+        "createdAt": 1792749038285
       },
-      "681aa1f1c42ca0e85ee44bb724f135a54eb2def38b8b37ef7fe1d50eb5d3d111": {
-        "expiresAt": 1792802034865,
-        "createdAt": 1792715634865
-      },
-      "6cbfa89187a64c6b67ba54836f8c065dbffaf2cba6766edb8f037cd7cfba337c": {
-        "expiresAt": 1792802040169,
-        "createdAt": 1792715640169
+      "UHJvbXBpcHNib3NzOjE3OTI3NDkwNDU3NTA6MTc5MjgzNTQ0NTc1MDpjZTkxMDFmYmQ2ZmJmMDk4NDc2NmMxZmVkNmMzMzkxNA.846e333ad56f2bb28af4bf887d636a44b7bd9c9b7b8d01fa7ab88fa73578b46a": {
+        "expiresAt": 1792835445681,
+        "createdAt": 1792749045681
       }
     },
     "failedAttempts": [],
-    "lockoutUntil": null
+    "lockoutUntil": null,
+    "lastLogoutTimestamp": 1792749038254
   },
   "settings": {
     "websiteName": "PROMPIPS BOT",
@@ -80,6 +77,48 @@
   ],
   "transactions": [],
   "auditLog": [
+    {
+      "id": "8f88a4f0-14e2-439f-a94a-dff1b7df422e",
+      "timestamp": 1792749045822,
+      "action": "PRICING_UPDATE",
+      "details": "Changed subscription price from $55 to $50 USD",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "2fc803fc-956a-4196-8dbe-2271d11074bc",
+      "timestamp": 1792749045777,
+      "action": "PRICING_UPDATE",
+      "details": "Changed subscription price from $50 to $55 USD",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "42652e9e-6216-43c7-8563-b597f0c0982a",
+      "timestamp": 1792749045751,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "9ee90156-117b-40de-9c86-09d380879142",
+      "timestamp": 1792749038352,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "5824a2b4-3b18-4bc1-a2a3-c834f9390a18",
+      "timestamp": 1792749038254,
+      "action": "ADMIN_LOGOUT",
+      "details": "Administrator session ended.",
+      "actor": "Prompipsboss"
+    },
+    {
+      "id": "05b06b1b-e860-48f7-a772-31ffadc2562f",
+      "timestamp": 1792749038026,
+      "action": "ADMIN_LOGIN",
+      "details": "Administrator successfully logged into control center.",
+      "actor": "Prompipsboss"
+    },
     {
       "id": "9987b4a8-d40a-4513-b9ca-d2c653fcf736",
       "timestamp": 1792715640274,
