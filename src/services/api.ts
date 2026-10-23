@@ -6,6 +6,7 @@ import {
   PricingSettings,
   BotSettings,
   AdminDashboardData,
+  PaymentSettingsPayload,
 } from '../types';
 
 const ADMIN_TOKEN_KEY = 'prompips_admin_token';
@@ -96,7 +97,7 @@ export async function verifyPaymentTxId(
   });
   const json = await res.json();
   if (!res.ok) {
-    throw new Error(json.message || 'Please enter the correct transaction ID');
+    throw new Error(json.message || 'Please enter the correct transaction ID of payment');
   }
   return json;
 }
@@ -174,7 +175,6 @@ export async function checkAdminSession(): Promise<boolean> {
     if (res.ok) {
       return true;
     }
-    // If not authenticated, clear local token
     setStoredAdminToken(null);
     return false;
   } catch {
@@ -194,6 +194,22 @@ export async function fetchAdminDashboardData(): Promise<AdminDashboardData> {
   }
   const json = await res.json();
   return json.data;
+}
+
+export async function saveAdminPaymentSettings(
+  payload: PaymentSettingsPayload
+): Promise<{ success: boolean; message: string; data: any }> {
+  const res = await fetch('/api/admin/payment-settings', {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.message || 'Failed to save payment settings.');
+  }
+  return json;
 }
 
 export async function saveAdminSettings(settings: Partial<WebsiteSettings>): Promise<WebsiteSettings> {
@@ -217,58 +233,6 @@ export async function saveAdminPricing(price: number, currency: string = 'USD'):
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.message || 'Failed to update pricing.');
-  return json.data;
-}
-
-export async function addAdminPaymentMethod(
-  method: Omit<PaymentMethod, 'id' | 'createdAt'>
-): Promise<PaymentMethod> {
-  const res = await fetch('/api/admin/payment-methods', {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    credentials: 'include',
-    body: JSON.stringify(method),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to add payment method.');
-  return json.data;
-}
-
-export async function updateAdminPaymentMethod(
-  id: string,
-  method: Partial<PaymentMethod>
-): Promise<PaymentMethod> {
-  const res = await fetch(`/api/admin/payment-methods/${id}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    credentials: 'include',
-    body: JSON.stringify(method),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to update payment method.');
-  return json.data;
-}
-
-export async function deleteAdminPaymentMethod(id: string): Promise<boolean> {
-  const res = await fetch(`/api/admin/payment-methods/${id}`, {
-    method: 'DELETE',
-    headers: getAuthHeaders(),
-    credentials: 'include',
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to delete payment method.');
-  return json.success;
-}
-
-export async function toggleAdminPaymentMethod(id: string, enabled: boolean): Promise<PaymentMethod> {
-  const res = await fetch(`/api/admin/payment-methods/${id}/toggle`, {
-    method: 'PATCH',
-    headers: getAuthHeaders(),
-    credentials: 'include',
-    body: JSON.stringify({ enabled }),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to toggle payment method.');
   return json.data;
 }
 

@@ -15,10 +15,6 @@ export interface PaymentMethod {
 export interface WebsiteSettings {
   websiteName: string;
   websiteDescription: string;
-  contactEmail: string;
-  whatsappSupport: string;
-  telegramSupport: string;
-  otherSupport: string;
 }
 
 export interface PricingSettings {
@@ -54,6 +50,14 @@ export interface BotSettings {
   publicStatusMessage: string;
 }
 
+export interface StorageStatus {
+  type: 'postgres' | 'local_file';
+  connected: boolean;
+  postgresConfigured: boolean;
+  message: string;
+  lastSaveError: string | null;
+}
+
 export interface EngineStatusData {
   botEngineStatus: BotEngineStatus;
   isTrading: boolean;
@@ -77,6 +81,20 @@ export interface MT5Credentials {
   password?: string;
 }
 
+export interface PaymentSettingsPayload {
+  price: number;
+  currency?: string;
+  trc20Enabled: boolean;
+  trc20Address: string;
+  trc20Instructions?: string;
+  erc20Enabled: boolean;
+  erc20Address: string;
+  erc20Instructions?: string;
+  btcEnabled: boolean;
+  btcAddress: string;
+  btcInstructions?: string;
+}
+
 export interface AdminDashboardData {
   settings: WebsiteSettings;
   pricing: PricingSettings;
@@ -84,6 +102,7 @@ export interface AdminDashboardData {
   transactions: TransactionRecord[];
   auditLog: AuditLogEntry[];
   botSettings: BotSettings;
+  storageStatus?: StorageStatus;
   runtimeState: {
     tradingBackendAttached: boolean;
     isTrading: boolean;

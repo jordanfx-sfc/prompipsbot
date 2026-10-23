@@ -90,7 +90,6 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-// Router for all API routes (mounted at /api and at root for Vercel serverless flexibility)
 const router = express.Router();
 
 // ==========================================
@@ -126,17 +125,13 @@ router.get('/engine/status', (req: Request, res: Response) => {
       publicSettings: {
         websiteName: publicConfig.websiteName,
         websiteDescription: publicConfig.websiteDescription,
-        contactEmail: publicConfig.contactEmail,
-        whatsappSupport: publicConfig.whatsappSupport,
-        telegramSupport: publicConfig.telegramSupport,
-        otherSupport: publicConfig.otherSupport,
       },
       enabledPaymentMethods: publicConfig.paymentMethods,
     },
   });
 });
 
-// 3. MT5 Account Validation and Connection Handshake
+// 3. MT5 Connection Handshake
 router.post('/mt5/connect', (req: Request, res: Response) => {
   const { loginId, brokerServer, password } = req.body;
 
@@ -204,7 +199,7 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (!txId || typeof txId !== 'string') {
     return res.status(400).json({
       success: false,
-      message: 'Please enter the correct transaction ID',
+      message: 'Please enter the correct transaction ID of payment',
     });
   }
 
@@ -215,7 +210,7 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (!hasValidLength || isObviousSpam) {
     return res.status(400).json({
       success: false,
-      message: 'Please enter the correct transaction ID',
+      message: 'Please enter the correct transaction ID of payment',
     });
   }
 
@@ -223,13 +218,13 @@ router.post('/verify-payment', (req: Request, res: Response) => {
   if (db.isTxIdDuplicate(trimmedTx)) {
     return res.status(400).json({
       success: false,
-      message: 'Please enter the correct transaction ID',
+      message: 'Please enter the correct transaction ID of payment',
     });
   }
 
   // Record transaction in persistent database
   const pricing = db.getPricing();
-  db.recordTransaction(trimmedTx, pricing.price, paymentMethodName || 'Cryptocurrency / Mobile Money', 'verified');
+  db.recordTransaction(trimmedTx, pricing.price, paymentMethodName || 'Cryptocurrency', 'verified');
 
   runtimeState.activeTxId = trimmedTx;
   runtimeState.paymentVerified = true;
@@ -258,14 +253,14 @@ router.post('/bot/start', (req: Request, res: Response) => {
   if (!botSettings.botActivationEnabled) {
     return res.status(403).json({
       success: false,
-      message: 'Bot activation is currently unavailable. Please contact support.',
+      message: 'Bot activation is currently paused by administrator.',
     });
   }
 
   if (!runtimeState.paymentVerified) {
     return res.status(403).json({
       success: false,
-      message: 'Payment required. Please complete and verify your subscription first.',
+      message: 'Please enter the correct transaction ID of payment',
     });
   }
 
@@ -411,6 +406,7 @@ router.get('/admin/dashboard-data', requireAdmin, (req: Request, res: Response) 
       transactions: db.getTransactions(),
       auditLog: db.getAuditLog(),
       botSettings: db.getBotSettings(),
+      storageStatus: db.getStorageStatus(),
       runtimeState: {
         tradingBackendAttached: runtimeState.tradingBackendAttached,
         isTrading: runtimeState.isTrading,
@@ -422,17 +418,60 @@ router.get('/admin/dashboard-data', requireAdmin, (req: Request, res: Response) 
   });
 });
 
-// A. Update General Settings
+// Dedicated Payment Settings Endpoint (TRC20, ERC20, BTC, Price, Instructions)
+router.put('/admin/payment-settings', requireAdmin, async (req: Request, res: Response) => {
+  const {
+    price,
+    currency,
+    trc20Enabled,
+    trc20Address,
+    trc20Instructions,
+    erc20Enabled,
+    erc20Address,
+    erc20Instructions,
+    btcEnabled,
+    btcAddress,
+    btcInstructions,
+  } = req.body;
+
+  const result = await db.updatePaymentSettings(
+    {
+      price: Number(price),
+      currency: currency ? String(currency) : 'USD',
+      trc20Enabled: Boolean(trc20Enabled),
+      trc20Address: String(trc20Address || ''),
+      trc20Instructions: trc20Instructions ? String(trc20Instructions) : undefined,
+      erc20Enabled: Boolean(erc20Enabled),
+      erc20Address: String(erc20Address || ''),
+      erc20Instructions: erc20Instructions ? String(erc20Instructions) : undefined,
+      btcEnabled: Boolean(btcEnabled),
+      btcAddress: String(btcAddress || ''),
+      btcInstructions: btcInstructions ? String(btcInstructions) : undefined,
+    },
+    'Administrator'
+  );
+
+  if (!result.success) {
+    return res.status(400).json({
+      success: false,
+      message: result.error || 'Failed to update payment settings.',
+    });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Payment settings saved and persisted successfully.',
+    data: result.data,
+  });
+});
+
+// Update General Settings (No Support Contacts)
 router.post('/admin/settings', requireAdmin, (req: Request, res: Response) => {
-  const { websiteName, websiteDescription, contactEmail, whatsappSupport, telegramSupport, otherSupport } = req.body;
+  const { websiteName, websiteDescription } = req.body;
   const updated = db.updateSettings(
     {
       websiteName: websiteName ? String(websiteName).trim() : undefined,
       websiteDescription: websiteDescription ? String(websiteDescription).trim() : undefined,
-      contactEmail: contactEmail ? String(contactEmail).trim() : undefined,
-      whatsappSupport: whatsappSupport ? String(whatsappSupport).trim() : undefined,
-      telegramSupport: telegramSupport ? String(telegramSupport).trim() : undefined,
-      otherSupport: otherSupport ? String(otherSupport).trim() : undefined,
     },
     'Administrator'
   );
@@ -443,7 +482,7 @@ router.post('/admin/settings', requireAdmin, (req: Request, res: Response) => {
   });
 });
 
-// B. Update Subscription Pricing
+// Update Subscription Pricing
 router.post('/admin/pricing', requireAdmin, (req: Request, res: Response) => {
   const { price, currency } = req.body;
   const numPrice = Number(price);
@@ -462,93 +501,7 @@ router.post('/admin/pricing', requireAdmin, (req: Request, res: Response) => {
   });
 });
 
-// C. Payment Methods Management
-router.post('/admin/payment-methods', requireAdmin, (req: Request, res: Response) => {
-  const { name, accountHolder, accountNumberOrAddress, network, instructions, qrCodeUrl, enabled } = req.body;
-
-  if (!name || !accountNumberOrAddress) {
-    return res.status(400).json({
-      success: false,
-      message: 'Payment method name and account number or address are required.',
-    });
-  }
-
-  const newMethod = db.addPaymentMethod(
-    {
-      name: String(name).trim(),
-      accountHolder: accountHolder ? String(accountHolder).trim() : '',
-      accountNumberOrAddress: String(accountNumberOrAddress).trim(),
-      network: network ? String(network).trim() : '',
-      instructions: instructions ? String(instructions).trim() : '',
-      qrCodeUrl: qrCodeUrl ? String(qrCodeUrl).trim() : '',
-      enabled: enabled !== undefined ? Boolean(enabled) : true,
-    },
-    'Administrator'
-  );
-
-  res.json({
-    success: true,
-    message: `Payment method "${newMethod.name}" added successfully.`,
-    data: newMethod,
-  });
-});
-
-router.put('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { name, accountHolder, accountNumberOrAddress, network, instructions, qrCodeUrl, enabled } = req.body;
-
-  const updated = db.updatePaymentMethod(
-    id,
-    {
-      ...(name !== undefined && { name: String(name).trim() }),
-      ...(accountHolder !== undefined && { accountHolder: String(accountHolder).trim() }),
-      ...(accountNumberOrAddress !== undefined && { accountNumberOrAddress: String(accountNumberOrAddress).trim() }),
-      ...(network !== undefined && { network: String(network).trim() }),
-      ...(instructions !== undefined && { instructions: String(instructions).trim() }),
-      ...(qrCodeUrl !== undefined && { qrCodeUrl: String(qrCodeUrl).trim() }),
-      ...(enabled !== undefined && { enabled: Boolean(enabled) }),
-    },
-    'Administrator'
-  );
-
-  if (!updated) {
-    return res.status(404).json({ success: false, message: 'Payment method not found.' });
-  }
-
-  res.json({
-    success: true,
-    message: `Payment method "${updated.name}" updated successfully.`,
-    data: updated,
-  });
-});
-
-router.delete('/admin/payment-methods/:id', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
-  const deleted = db.deletePaymentMethod(id, 'Administrator');
-  if (!deleted) {
-    return res.status(404).json({ success: false, message: 'Payment method not found.' });
-  }
-  res.json({
-    success: true,
-    message: 'Payment method deleted successfully.',
-  });
-});
-
-router.patch('/admin/payment-methods/:id/toggle', requireAdmin, (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { enabled } = req.body;
-  const updated = db.togglePaymentMethod(id, Boolean(enabled), 'Administrator');
-  if (!updated) {
-    return res.status(404).json({ success: false, message: 'Payment method not found.' });
-  }
-  res.json({
-    success: true,
-    message: `Payment method "${updated.name}" is now ${updated.enabled ? 'enabled' : 'disabled'}.`,
-    data: updated,
-  });
-});
-
-// D. Payment Verification (Transactions)
+// Transaction Verification Status
 router.patch('/admin/transactions/:id/status', requireAdmin, (req: Request, res: Response) => {
   const { id } = req.params;
   const { status, notes } = req.body;
@@ -581,7 +534,7 @@ router.patch('/admin/transactions/:id/status', requireAdmin, (req: Request, res:
   });
 });
 
-// E. Bot Settings
+// Bot Settings
 router.post('/admin/bot-settings', requireAdmin, (req: Request, res: Response) => {
   const { displayName, botStatus, botActivationEnabled, mt5IntegrationStatus, publicStatusMessage } = req.body;
 
@@ -660,7 +613,6 @@ router.post('/engine/reset', (req: Request, res: Response) => {
   });
 });
 
-// Mount router on both /api (standard) and / (if serverless function strips prefix)
 app.use('/api', router);
 app.use('/', router);
 

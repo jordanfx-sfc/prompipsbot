@@ -35,12 +35,39 @@ export default function App() {
       websiteName: 'PROMPIPS BOT',
       websiteDescription:
         'High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification.',
-      contactEmail: 'support@prompipsbot.com',
-      whatsappSupport: '+1 (555) 789-2041',
-      telegramSupport: '@prompips_official',
-      otherSupport: '24/7 VIP Automated Strategy Desk & Account Support',
     },
-    enabledPaymentMethods: [],
+    enabledPaymentMethods: [
+      {
+        id: 'pm-trc20',
+        name: 'TRC20',
+        accountHolder: 'PROMPIPS Official Treasury',
+        accountNumberOrAddress: 'TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC',
+        network: 'USDT — TRON Network',
+        instructions:
+          'Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.',
+        enabled: true,
+      },
+      {
+        id: 'pm-erc20',
+        name: 'ERC20',
+        accountHolder: 'PROMPIPS Official Multi-Sig',
+        accountNumberOrAddress: '0x4984ba14236737ada963abff469f2d25821c92dc',
+        network: 'USDT — Ethereum Network',
+        instructions:
+          'Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.',
+        enabled: true,
+      },
+      {
+        id: 'pm-btc',
+        name: 'BTC',
+        accountHolder: 'PROMPIPS Bitcoin Cold Storage',
+        accountNumberOrAddress: '393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br',
+        network: 'Bitcoin Network',
+        instructions:
+          'Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.',
+        enabled: true,
+      },
+    ],
   });
 
   const loadStatus = async () => {
@@ -54,7 +81,6 @@ export default function App() {
 
   useEffect(() => {
     loadStatus();
-    // Poll status periodically to keep state synced across all sessions
     const interval = setInterval(loadStatus, 4000);
     return () => clearInterval(interval);
   }, []);
@@ -158,7 +184,6 @@ export default function App() {
         onPaymentSuccess={handlePaymentSuccess}
         onStartBotRequested={() => {
           setIsPaymentModalOpen(false);
-          // If on dashboard, the user can now tap START BOT
         }}
       />
 

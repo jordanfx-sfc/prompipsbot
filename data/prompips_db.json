@@ -2,18 +2,27 @@
   "admin": {
     "username": "Prompipsboss",
     "passwordHash": "$2b$12$tgkYvlQ1XpBoZxTqxvTd7ekIczq7EbDQC/rcKJsJDiNMHTtEMbZG2",
-    "sessions": {},
+    "sessions": {
+      "UHJvbXBpcHNib3NzOjE3OTI3NTQxNzk3ODA6MTc5Mjg0MDU3OTc4MDoyODM0ZTM1NTBlMjZkZTI1MWI5ODRhNTQwZDVkZjJhZQ.87617a9d3a3887c26ac2f0e9c48258c17e3924ca45ef152ac28bf30a0db9fb1e": {
+        "expiresAt": 1792840579780,
+        "createdAt": 1792754179780
+      },
+      "UHJvbXBpcHNib3NzOjE3OTI3NTQxODc1NjQ6MTc5Mjg0MDU4NzU2NDo2ZGRmM2ZjYTU1MzdmMWNhZThhMmNjMjZlM2EzMWQ5YQ.81562d6762aec5fa77b83029a633f8e578d3b08a7ac7b18177e1c9ae949f7de9": {
+        "expiresAt": 1792840587564,
+        "createdAt": 1792754187564
+      },
+      "UHJvbXBpcHNib3NzOjE3OTI3NTQxOTE1Mzg6MTc5Mjg0MDU5MTUzODoxYWZhZTdmM2NjNzJjNWVhOWQ4MTYwNjEwNmUyYTgzYg.4a1f7d67b1fa12d77a114ce9494be06533852272f240b08a293cd5971ce726cb": {
+        "expiresAt": 1792840591538,
+        "createdAt": 1792754191538
+      }
+    },
     "failedAttempts": [],
     "lockoutUntil": null,
-    "lastLogoutTimestamp": 1792751771027
+    "lastLogoutTimestamp": null
   },
   "settings": {
     "websiteName": "PROMPIPS BOT",
-    "websiteDescription": "High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification.",
-    "contactEmail": "support@prompipsbot.com",
-    "whatsappSupport": "+1 (555) 789-2041",
-    "telegramSupport": "@prompips_official",
-    "otherSupport": "24/7 VIP Automated Strategy Desk & Account Support"
+    "websiteDescription": "High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification."
   },
   "pricing": {
     "price": 50,
@@ -21,156 +30,68 @@
   },
   "paymentMethods": [
     {
-      "id": "pm-usdt-trc20",
-      "name": "USDT (TRC20)",
-      "accountHolder": "PROMPIPS Treasury",
-      "accountNumberOrAddress": "TYDnm7x9vQP3L4u1kQ2V8s8P7oF4Y9wK1b",
-      "network": "TRC-20 (Tron Network)",
-      "instructions": "Send exactly $50 USDT via TRC20 network. Zero or near-zero gas fee. Copy TXID from your wallet after sending.",
+      "id": "pm-trc20",
+      "name": "TRC20",
+      "accountHolder": "PROMPIPS Official Treasury",
+      "accountNumberOrAddress": "TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC",
+      "network": "USDT — TRON Network",
+      "instructions": "Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.",
       "qrCodeUrl": "",
       "enabled": true,
-      "createdAt": 1792629210798
+      "createdAt": 1792667764960
     },
     {
-      "id": "pm-usdt-erc20",
-      "name": "USDT (ERC20 / Polygon)",
-      "accountHolder": "PROMPIPS Multi-Sig",
-      "accountNumberOrAddress": "0x892a0572e92c2b3e8c9b2f768b446a6e789bc44d",
-      "network": "Ethereum / Polygon EVM",
-      "instructions": "Send $50 USDT to this EVM address. Ensure you select either Ethereum or Polygon network.",
+      "id": "pm-erc20",
+      "name": "ERC20",
+      "accountHolder": "PROMPIPS Official Multi-Sig",
+      "accountNumberOrAddress": "0x4984ba14236737ada963abff469f2d25821c92dc",
+      "network": "USDT — Ethereum Network",
+      "instructions": "Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.",
       "qrCodeUrl": "",
       "enabled": true,
-      "createdAt": 1792629210798
+      "createdAt": 1792667764960
     },
     {
-      "id": "pm-bep20",
-      "name": "BEP20 (BNB Smart Chain)",
-      "accountHolder": "PROMPIPS Treasury",
-      "accountNumberOrAddress": "",
-      "network": "BEP-20 (BNB Smart Chain)",
-      "instructions": "Send subscription fee via BEP20 (BNB Smart Chain). Awaiting administrator wallet address configuration.",
+      "id": "pm-btc",
+      "name": "BTC",
+      "accountHolder": "PROMPIPS Bitcoin Cold Storage",
+      "accountNumberOrAddress": "393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br",
+      "network": "Bitcoin Network",
+      "instructions": "Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.",
       "qrCodeUrl": "",
       "enabled": true,
-      "createdAt": 1792629210798
-    },
-    {
-      "id": "pm-momo",
-      "name": "Mobile Money / Bank Wire",
-      "accountHolder": "Michael Mukiibi (PROMPIPS Finance)",
-      "accountNumberOrAddress": "+256 772 890 142 / Stanbic 90300189402",
-      "network": "MTN / Airtel Mobile Money / Bank Transfer",
-      "instructions": "Send $50 equivalent (or local currency). Set reference as \"PROMPIPS-BOT\". Paste transfer transaction code below.",
-      "qrCodeUrl": "",
-      "enabled": true,
-      "createdAt": 1792629210798
+      "createdAt": 1792667764960
     }
   ],
   "transactions": [],
   "auditLog": [
     {
-      "id": "3b53f929-8e24-496b-9291-4e331676aba9",
-      "timestamp": 1792751771027,
-      "action": "ADMIN_LOGOUT",
-      "details": "Administrator session terminated.",
-      "actor": "Administrator"
-    },
-    {
-      "id": "e233205c-4e8f-4cd0-8c38-cf7495de42ba",
-      "timestamp": 1792751764245,
+      "id": "029b120d-7f53-4f6a-bb51-29fc808b5593",
+      "timestamp": 1792754191539,
       "action": "ADMIN_LOGIN",
       "details": "Administrator successfully authenticated.",
       "actor": "Administrator"
     },
     {
-      "id": "6d966cbc-f6af-4a0f-a8a5-f405f7bebfd2",
-      "timestamp": 1792750773126,
+      "id": "2b816134-a0f6-43e1-a945-ddb6fdfea533",
+      "timestamp": 1792754187587,
+      "action": "PAYMENT_SETTINGS_UPDATE",
+      "details": "Updated payment settings: Price=$50, TRC20=true, ERC20=true, BTC=true",
+      "actor": "Administrator"
+    },
+    {
+      "id": "07dcc366-944a-4de9-ac50-f42d90453fe6",
+      "timestamp": 1792754187564,
       "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
+      "details": "Administrator successfully authenticated.",
+      "actor": "Administrator"
     },
     {
-      "id": "8f88a4f0-14e2-439f-a94a-dff1b7df422e",
-      "timestamp": 1792749045822,
-      "action": "PRICING_UPDATE",
-      "details": "Changed subscription price from $55 to $50 USD",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "2fc803fc-956a-4196-8dbe-2271d11074bc",
-      "timestamp": 1792749045777,
-      "action": "PRICING_UPDATE",
-      "details": "Changed subscription price from $50 to $55 USD",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "42652e9e-6216-43c7-8563-b597f0c0982a",
-      "timestamp": 1792749045751,
+      "id": "0c921faa-d5fb-4a02-87e4-96fe7977d944",
+      "timestamp": 1792754179781,
       "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "9ee90156-117b-40de-9c86-09d380879142",
-      "timestamp": 1792749038352,
-      "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "5824a2b4-3b18-4bc1-a2a3-c834f9390a18",
-      "timestamp": 1792749038254,
-      "action": "ADMIN_LOGOUT",
-      "details": "Administrator session ended.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "05b06b1b-e860-48f7-a772-31ffadc2562f",
-      "timestamp": 1792749038026,
-      "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "9987b4a8-d40a-4513-b9ca-d2c653fcf736",
-      "timestamp": 1792715640274,
-      "action": "BOT_SETTINGS_UPDATE",
-      "details": "Updated bot settings: botActivationEnabled",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "8461d0b4-983b-4eab-91e8-ca24ce6a1f86",
-      "timestamp": 1792715640252,
-      "action": "BOT_SETTINGS_UPDATE",
-      "details": "Updated bot settings: botActivationEnabled",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "2e21a74b-fd88-43de-b3aa-9efe0272363a",
-      "timestamp": 1792715640237,
-      "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "055e3474-9297-4dcb-91f7-cb25cc13f894",
-      "timestamp": 1792715634955,
-      "action": "PRICING_UPDATE",
-      "details": "Changed subscription price from $50 to $50 USD",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "fe02fa76-b6fe-42f2-9651-7c3b647ceaf6",
-      "timestamp": 1792715634935,
-      "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
-    },
-    {
-      "id": "bcea969e-bdaa-42f4-a4f4-61c0b2224756",
-      "timestamp": 1792715625488,
-      "action": "ADMIN_LOGIN",
-      "details": "Administrator successfully logged into control center.",
-      "actor": "Prompipsboss"
+      "details": "Administrator successfully authenticated.",
+      "actor": "Administrator"
     },
     {
       "id": "d788d5f9-52f8-46a6-8966-475d6e38bc64",

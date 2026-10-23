@@ -2,22 +2,17 @@ import React, { useState } from 'react';
 import {
   Server,
   CreditCard,
-  MessageSquare,
   Power,
   RefreshCw,
-  Sliders,
   CheckCircle2,
   AlertCircle,
   Copy,
   Check,
-  Cpu,
   ShieldCheck,
   Lock,
-  ExternalLink,
-  DollarSign,
 } from 'lucide-react';
-import { EngineStatusData, BotEngineStatus } from '../types';
-import { disconnectMT5, stopBot, toggleAdminBackendBridge } from '../services/api';
+import { EngineStatusData } from '../types';
+import { disconnectMT5, stopBot } from '../services/api';
 
 interface SettingsViewProps {
   statusData: EngineStatusData;
@@ -73,10 +68,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const contactEmail = statusData.publicSettings?.contactEmail || 'support@prompipsbot.com';
-  const whatsappSupport = statusData.publicSettings?.whatsappSupport || '+1 (555) 789-2041';
-  const telegramSupport = statusData.publicSettings?.telegramSupport || '@prompips_official';
-  const otherSupport = statusData.publicSettings?.otherSupport || '24/7 VIP Automated Strategy Desk & Account Support';
   const price = statusData.subscriptionPrice || 50;
   const currency = statusData.currency || 'USD';
 
@@ -94,7 +85,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
         <button
           onClick={onRefreshStatus}
-          className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:text-white transition-colors"
+          className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:text-white transition-colors cursor-pointer"
           title="Refresh Engine Status"
         >
           <RefreshCw className="w-4 h-4" />
@@ -118,8 +109,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* REQUIREMENT 2: VISIBLE ADMIN BUTTON */}
-      {/* "Add an Admin Panel button inside the Settings screen. The button must be visible to everyone. Do not hide it based on the visitor's identity." */}
+      {/* VISIBLE ADMIN BUTTON */}
       <div className="rounded-2xl bg-gradient-to-r from-purple-950/90 via-[#180933] to-[#0c1a2e] border-2 border-purple-500/70 p-5 shadow-2xl glow-purple space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -131,7 +121,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 ADMIN CONTROL CENTER
               </h3>
               <span className="text-[10px] font-mono tracking-tight text-purple-300 block">
-                PRICING · PAYMENT METHODS · BOT ACTIVATION · AUDIT LOGS
+                PRICING · PAYMENT WALLETS · BOT ACTIVATION · AUDIT LOGS
               </span>
             </div>
           </div>
@@ -141,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <p className="text-xs text-purple-200/80 leading-relaxed font-mono">
-          Authorized administrative management portal for updating subscription pricing, adding/editing payment methods, validating transaction IDs, and configuring engine parameters.
+          Authorized administrative management portal for updating subscription pricing, editing wallet addresses (TRC20, ERC20, BTC), validating transaction IDs, and configuring engine parameters.
         </p>
 
         <button
@@ -194,7 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <button
               onClick={() => handleCopy(statusData.activeTxId!, 'txid')}
-              className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-[#00f2fe] hover:bg-cyan-900/40 transition-colors shrink-0"
+              className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-[#00f2fe] hover:bg-cyan-900/40 transition-colors shrink-0 cursor-pointer"
             >
               {copiedKey === 'txid' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
@@ -288,65 +278,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
       )}
-
-      {/* 4. Support / Contact Details Configured by Administrator */}
-      <div className="rounded-2xl bg-[#0f0a24] border border-purple-800/60 p-5 shadow-xl space-y-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="w-5 h-5 text-[#00f2fe]" />
-          <h3 className="font-display font-bold text-lg text-white">SUPPORT & OFFICIAL CHANNELS</h3>
-        </div>
-
-        <div className="space-y-2.5 text-xs font-mono">
-          {/* Telegram */}
-          <div className="p-3 rounded-xl bg-[#080518] border border-purple-900/50 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="text-cyan-400 font-bold">Telegram:</span>
-              <span className="text-slate-200">{telegramSupport}</span>
-            </div>
-            <button
-              onClick={() => handleCopy(telegramSupport, 'tg')}
-              className="p-1 text-purple-400 hover:text-cyan-300 transition-colors"
-            >
-              {copiedKey === 'tg' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* WhatsApp */}
-          <div className="p-3 rounded-xl bg-[#080518] border border-purple-900/50 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="text-cyan-400 font-bold">WhatsApp:</span>
-              <span className="text-slate-200">{whatsappSupport}</span>
-            </div>
-            <button
-              onClick={() => handleCopy(whatsappSupport, 'wa')}
-              className="p-1 text-purple-400 hover:text-cyan-300 transition-colors"
-            >
-              {copiedKey === 'wa' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Email */}
-          <div className="p-3 rounded-xl bg-[#080518] border border-purple-900/50 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="text-cyan-400 font-bold">Email:</span>
-              <span className="text-slate-200">{contactEmail}</span>
-            </div>
-            <button
-              onClick={() => handleCopy(contactEmail, 'email')}
-              className="p-1 text-purple-400 hover:text-cyan-300 transition-colors"
-            >
-              {copiedKey === 'email' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Other info */}
-          {otherSupport && (
-            <p className="text-[11px] text-purple-300/70 pt-1">
-              {otherSupport}
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

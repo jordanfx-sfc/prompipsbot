@@ -3,8 +3,6 @@ import {
   Server,
   Zap,
   Shield,
-  Lock,
-  Unlock,
   Power,
   CheckCircle2,
   AlertCircle,
@@ -14,9 +12,6 @@ import {
   EyeOff,
   RefreshCw,
   Wallet,
-  ArrowRight,
-  Sparkles,
-  Sliders,
   DollarSign,
   AlertTriangle,
 } from 'lucide-react';
@@ -39,43 +34,33 @@ interface TradingEngineDashboardProps {
 
 const DEFAULT_METHODS: PaymentMethod[] = [
   {
-    id: 'pm-usdt-trc20',
-    name: 'USDT (TRC20)',
-    accountHolder: 'PROMPIPS Treasury',
-    accountNumberOrAddress: 'TYDnm7x9vQP3L4u1kQ2V8s8P7oF4Y9wK1b',
-    network: 'TRC-20 (Tron Network)',
+    id: 'pm-trc20',
+    name: 'TRC20',
+    accountHolder: 'PROMPIPS Official Treasury',
+    accountNumberOrAddress: 'TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC',
+    network: 'USDT — TRON Network',
     instructions:
-      'Send exactly $50 USDT via TRC20 network. Zero or near-zero gas fee. Copy TXID from your wallet after sending.',
+      'Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.',
     enabled: true,
   },
   {
-    id: 'pm-usdt-erc20',
-    name: 'USDT (ERC20 / Polygon)',
-    accountHolder: 'PROMPIPS Multi-Sig',
-    accountNumberOrAddress: '0x892a0572e92c2b3e8c9b2f768b446a6e789bc44d',
-    network: 'Ethereum / Polygon EVM',
+    id: 'pm-erc20',
+    name: 'ERC20',
+    accountHolder: 'PROMPIPS Official Multi-Sig',
+    accountNumberOrAddress: '0x4984ba14236737ada963abff469f2d25821c92dc',
+    network: 'USDT — Ethereum Network',
     instructions:
-      'Send $50 USDT to this EVM address. Ensure you select either Ethereum or Polygon network.',
+      'Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.',
     enabled: true,
   },
   {
-    id: 'pm-bep20',
-    name: 'BEP20 (BNB Smart Chain)',
-    accountHolder: 'PROMPIPS Treasury',
-    accountNumberOrAddress: '',
-    network: 'BEP-20 (BNB Smart Chain)',
+    id: 'pm-btc',
+    name: 'BTC',
+    accountHolder: 'PROMPIPS Bitcoin Cold Storage',
+    accountNumberOrAddress: '393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br',
+    network: 'Bitcoin Network',
     instructions:
-      'Send subscription fee via BEP20 (BNB Smart Chain). Awaiting administrator wallet address configuration.',
-    enabled: true,
-  },
-  {
-    id: 'pm-momo',
-    name: 'Mobile Money / Bank Wire',
-    accountHolder: 'Michael Mukiibi (PROMPIPS Finance)',
-    accountNumberOrAddress: '+256 772 890 142 / Stanbic 90300189402',
-    network: 'MTN / Airtel Mobile Money / Bank Transfer',
-    instructions:
-      'Send $50 equivalent (or local currency). Set reference as "PROMPIPS-BOT". Paste transfer transaction code below.',
+      'Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.',
     enabled: true,
   },
 ];
@@ -99,19 +84,33 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
   onConnectionSuccess,
   onOpenAdminPanel,
 }) => {
-  // Payment methods list: Filter out any legacy BTC method, ensure BEP20 is present
+  // Payment methods: strictly TRC20, ERC20, BTC only
   const availableMethods =
     statusData.enabledPaymentMethods && statusData.enabledPaymentMethods.length > 0
-      ? statusData.enabledPaymentMethods.filter(
-          (m) =>
+      ? statusData.enabledPaymentMethods.filter((m) => {
+          const id = (m.id || '').toLowerCase();
+          const name = (m.name || '').toLowerCase();
+          return (
             m.enabled &&
-            !m.name.toLowerCase().includes('btc') &&
-            !m.name.toLowerCase().includes('bitcoin')
-        )
+            (id === 'pm-trc20' ||
+              id === 'pm-erc20' ||
+              id === 'pm-btc' ||
+              name.includes('trc') ||
+              name.includes('erc') ||
+              name.includes('btc') ||
+              name.includes('bitcoin')) &&
+            !name.includes('bep') &&
+            !name.includes('momo') &&
+            !name.includes('mobile') &&
+            !name.includes('bank')
+          );
+        })
       : DEFAULT_METHODS;
 
+  const methodsToDisplay = availableMethods.length > 0 ? availableMethods : DEFAULT_METHODS;
+
   const [selectedMethodId, setSelectedMethodId] = useState<string>(
-    availableMethods[0]?.id || 'pm-usdt-trc20'
+    methodsToDisplay[0]?.id || 'pm-trc20'
   );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -134,11 +133,10 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isConnectingMT5, setIsConnectingMT5] = useState(false);
 
-  // Connect Bot Action Message (Exact requirement)
+  // Connect Bot Action Message (Strictly: "Please enter the correct transaction ID of payment")
   const [connectBotMessage, setConnectBotMessage] = useState<string | null>(null);
 
   // Bot start/stop state
-  const [isStartingBot, setIsStartingBot] = useState(false);
   const [isStoppingBot, setIsStoppingBot] = useState(false);
   const [engineAlert, setEngineAlert] = useState<{
     type: 'error' | 'success' | 'warning';
@@ -148,8 +146,8 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
   } | null>(null);
 
   const activeMethod =
-    availableMethods.find((m) => m.id === selectedMethodId) ||
-    availableMethods[0] ||
+    methodsToDisplay.find((m) => m.id === selectedMethodId) ||
+    methodsToDisplay[0] ||
     DEFAULT_METHODS[0];
 
   const handleCopy = (text: string, key: string) => {
@@ -166,13 +164,13 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
     const trimmed = txIdInput.trim();
     if (!trimmed) {
       setTxVerificationStatus('failed');
-      setTxStatusMessage('Please enter the correct transaction ID');
+      setTxStatusMessage('Please enter the correct transaction ID of payment');
       return;
     }
 
     setIsVerifyingTx(true);
     setTxVerificationStatus('pending');
-    setTxStatusMessage('Verifying payment on the blockchain / gateway...');
+    setTxStatusMessage('Verifying payment on the blockchain gateway...');
 
     try {
       const res = await verifyPaymentTxId(trimmed, activeMethod?.name);
@@ -187,28 +185,25 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
         onRefreshStatus();
       } else {
         setTxVerificationStatus('failed');
-        setTxStatusMessage('Please enter the correct transaction ID');
+        setTxStatusMessage('Please enter the correct transaction ID of payment');
       }
-    } catch (err: any) {
+    } catch {
       setTxVerificationStatus('failed');
-      setTxStatusMessage('Please enter the correct transaction ID');
+      setTxStatusMessage('Please enter the correct transaction ID of payment');
     } finally {
       setIsVerifyingTx(false);
     }
   };
 
   const handleConnectBot = async () => {
-    // Clear previous alerts
     setEngineAlert(null);
 
-    // Requirement 4:
-    // When CONNECT BOT is clicked:
-    // Display the following exact message: "Please enter the correct transaction ID"
-    // Do NOT display generic errors, 404s, backend crash messages, or stack traces.
-    // Keep the user on the page so they can complete the payment verification and retry.
+    // Strict requirement:
+    // Clicking CONNECT BOT must display strictly and only:
+    // "Please enter the correct transaction ID of payment"
+    // (No appended text)
     if (!statusData.paymentVerified && txVerificationStatus !== 'success') {
-      setConnectBotMessage('Please enter the correct transaction ID');
-      // Scroll smoothly to the transaction ID input field if not already in view
+      setConnectBotMessage('Please enter the correct transaction ID of payment');
       const txInputElem = document.getElementById('prompips-txid-input');
       if (txInputElem) {
         txInputElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -243,7 +238,6 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
       onRefreshStatus();
       setPassword('');
 
-      // Auto start bot if activation enabled
       if (statusData.botActivationEnabled) {
         try {
           const startRes = await startBot();
@@ -262,9 +256,8 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
           });
         }
       }
-    } catch (err: any) {
-      // Clean user-friendly message without stack traces
-      setConnectBotMessage('Please enter the correct transaction ID');
+    } catch {
+      setConnectBotMessage('Please enter the correct transaction ID of payment');
     } finally {
       setIsConnectingMT5(false);
     }
@@ -304,7 +297,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
   return (
     <div className="max-w-xl mx-auto px-4 py-5 space-y-6">
       {/* ==============================================================
-          SECTION 1: TOP HEADING (Exact Requirement)
+          1. TOP HEADING (Exact Requirement)
           "Activate your bot to get started"
           ============================================================== */}
       <div className="text-center pt-2 pb-1">
@@ -355,10 +348,10 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
       )}
 
       {/* ==============================================================
-          SECTIONS 2, 3, 4: SUBSCRIPTION PRICE & PAYMENT MENU
+          2, 3, 4: SUBSCRIPTION PRICE & PAYMENT MENU (Strictly 3 methods)
           - Subscription price loaded from admin ($50)
-          - Available payment methods (USDT TRC20, USDT ERC20, BEP20 BNB Smart Chain, Momo)
-          - Payment instructions & 1-click copy
+          - Available payment methods: TRC20, ERC20, BTC
+          - Payment instructions & 1-click copy with network name clearly displayed
           - Transaction ID input & Verify Payment button
           - Payment verification status
           ============================================================== */}
@@ -388,7 +381,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
               <span className="text-3xl font-extrabold font-display text-[#00f2fe] tracking-tight drop-shadow-[0_0_10px_rgba(0,242,254,0.4)]">
                 ${statusData.subscriptionPrice}
               </span>
-              <span className="text-xs font-mono text-purple-300">USD</span>
+              <span className="text-xs font-mono text-purple-300">{statusData.currency || 'USD'}</span>
             </div>
             <span className="text-[10px] font-mono text-cyan-300/80 block uppercase tracking-wider">
               One-Time Lifetime Access
@@ -396,15 +389,15 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
           </div>
         </div>
 
-        {/* 3. Payment Method Selection Tabs */}
+        {/* 3. Payment Method Selection (Strictly 3 methods: TRC20, ERC20, BTC) */}
         <div className="pt-4 space-y-4">
           <div>
             <label className="text-[11px] font-mono uppercase tracking-wider text-purple-300 block mb-2 flex items-center gap-2">
               <Wallet className="w-3.5 h-3.5 text-[#00f2fe]" />
-              Select Payment Method:
+              Select Cryptocurrency Payment Method:
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              {availableMethods.map((method) => {
+            <div className="grid grid-cols-3 gap-2">
+              {methodsToDisplay.map((method) => {
                 const isSelected = method.id === selectedMethodId;
                 return (
                   <button
@@ -416,20 +409,20 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
                     }}
                     className={`p-3 rounded-2xl text-left border transition-all cursor-pointer relative overflow-hidden ${
                       isSelected
-                        ? 'bg-purple-900/40 border-[#00f2fe] shadow-lg glow-cyan text-white'
+                        ? 'bg-purple-900/50 border-[#00f2fe] shadow-lg glow-cyan text-white ring-1 ring-[#00f2fe]/50'
                         : 'bg-[#080415] border-purple-900/60 text-slate-300 hover:border-purple-600/70 hover:bg-purple-950/30'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-display font-bold text-xs truncate">
+                      <span className="font-display font-bold text-xs sm:text-sm truncate">
                         {method.name}
                       </span>
                       {isSelected && (
                         <span className="w-2 h-2 rounded-full bg-[#00f2fe] glow-cyan shrink-0" />
                       )}
                     </div>
-                    <span className="text-[10px] font-mono text-purple-300/80 truncate block">
-                      {method.network || 'Official Network'}
+                    <span className="text-[10px] font-mono text-cyan-300/90 truncate block font-semibold">
+                      {method.network}
                     </span>
                   </button>
                 );
@@ -442,75 +435,52 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
             <div className="p-4 rounded-2xl bg-[#080415] border border-purple-900/70 space-y-3">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-mono text-purple-300 uppercase tracking-wide text-[10px]">
-                  Network: <strong className="text-cyan-300">{activeMethod.network || 'Standard'}</strong>
+                  Network: <strong className="text-cyan-300 font-bold">{activeMethod.network}</strong>
                 </span>
                 {activeMethod.accountHolder && (
                   <span className="font-mono text-slate-400 text-[10px] truncate max-w-[180px]">
-                    Payee: {activeMethod.accountHolder}
+                    {activeMethod.accountHolder}
                   </span>
                 )}
               </div>
 
-              {/* BEP20 Unconfigured Wallet Handling */}
-              {activeMethod.id === 'pm-bep20' &&
-              (!activeMethod.accountNumberOrAddress || !activeMethod.accountNumberOrAddress.trim()) ? (
-                <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-500/50 text-amber-200 text-xs font-mono space-y-1">
-                  <div className="flex items-center gap-2 font-bold text-amber-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Awaiting Administrator Wallet Configuration</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed text-amber-200/90">
-                    The administrator has not configured the BEP20 (BNB Smart Chain) address yet. Please select another payment method above (e.g. USDT TRC20 or ERC20), or configure the BEP20 address in the Admin Panel.
-                  </p>
-                  {onOpenAdminPanel && (
-                    <button
-                      type="button"
-                      onClick={onOpenAdminPanel}
-                      className="mt-1 text-[11px] text-[#00f2fe] hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-                    >
-                      Open Admin Panel to Configure BEP20 Address →
-                    </button>
+              {/* Wallet Address with Network Name and 1-Click Copy */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-mono uppercase text-slate-400">
+                    {activeMethod.name} Wallet Address ({activeMethod.network}):
+                  </span>
+                  {copiedKey === 'address' && (
+                    <span className="text-[10px] font-mono text-[#00f59b] flex items-center gap-1 font-bold">
+                      <Check className="w-3 h-3" /> Address Copied!
+                    </span>
                   )}
                 </div>
-              ) : (
-                /* Configured Wallet Address with 1-Click Copy */
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-mono uppercase text-slate-400">
-                      Payment Address / Account:
-                    </span>
-                    {copiedKey === 'address' && (
-                      <span className="text-[10px] font-mono text-[#00f59b] flex items-center gap-1 font-bold">
-                        <Check className="w-3 h-3" /> Copied to Clipboard!
-                      </span>
-                    )}
-                  </div>
 
-                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#03151d] border border-cyan-900/60 font-mono text-xs text-cyan-200 break-all select-all">
-                    <span className="flex-1 font-mono tracking-tight select-all">
-                      {activeMethod.accountNumberOrAddress}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(activeMethod.accountNumberOrAddress, 'address')}
-                      aria-label="Copy address"
-                      className="p-2 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-[#00f2fe] hover:text-white transition-colors shrink-0 cursor-pointer"
-                    >
-                      {copiedKey === 'address' ? (
-                        <Check className="w-4 h-4 text-[#00f59b]" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
+                <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#03151d] border border-cyan-900/60 font-mono text-xs text-cyan-200 break-all select-all">
+                  <span className="flex-1 font-mono tracking-tight select-all">
+                    {activeMethod.accountNumberOrAddress}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(activeMethod.accountNumberOrAddress, 'address')}
+                    aria-label="Copy address"
+                    className="p-2 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-[#00f2fe] hover:text-white transition-colors shrink-0 cursor-pointer"
+                  >
+                    {copiedKey === 'address' ? (
+                      <Check className="w-4 h-4 text-[#00f59b]" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
-              )}
+              </div>
 
               {/* Payment Instructions */}
               {activeMethod.instructions && (
                 <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-slate-300 font-mono text-[11px] leading-relaxed">
                   <span className="text-purple-300 font-bold uppercase text-[10px] block mb-0.5">
-                    Instructions:
+                    Instructions ({activeMethod.network}):
                   </span>
                   {activeMethod.instructions}
                 </div>
@@ -525,8 +495,8 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
                 htmlFor="prompips-txid-input"
                 className="text-[11px] font-mono uppercase tracking-wider text-purple-300 block mb-1.5 flex items-center justify-between"
               >
-                <span>Transaction ID / Hash / Reference:</span>
-                <span className="text-cyan-400 text-[10px]">Step 1 of 2</span>
+                <span>Transaction ID / Hash:</span>
+                <span className="text-cyan-400 text-[10px]">Required for Activation</span>
               </label>
               <div className="relative">
                 <input
@@ -537,7 +507,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
                     setTxIdInput(e.target.value);
                     setConnectBotMessage(null);
                   }}
-                  placeholder="Paste your Transaction Hash / TXID / Transfer Code here..."
+                  placeholder="Paste your Transaction Hash / TXID here..."
                   className="w-full h-12 px-4 rounded-xl bg-[#05020f] border border-purple-700/60 focus:border-[#00f2fe] focus:ring-1 focus:ring-[#00f2fe] text-white font-mono text-xs sm:text-sm tracking-wide placeholder:text-purple-400/40 outline-none transition-all shadow-inner"
                 />
               </div>
@@ -586,13 +556,13 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
                     {statusData.paymentVerified || txVerificationStatus === 'success'
                       ? 'Payment Verified'
                       : txVerificationStatus === 'failed'
-                      ? 'Verification Failed'
+                      ? 'Verification Notice'
                       : 'Verifying...'}
                   </span>
                   <p className="text-[11px] mt-0.5 font-mono">
                     {statusData.paymentVerified
-                      ? `Subscription cleared ($${statusData.subscriptionPrice} USD). Proceed to MT5 connection below.`
-                      : txStatusMessage || 'Please enter the correct transaction ID'}
+                      ? `Subscription cleared ($${statusData.subscriptionPrice} ${statusData.currency || 'USD'}). Proceed to MT5 connection below.`
+                      : txStatusMessage || 'Please enter the correct transaction ID of payment'}
                   </p>
                 </div>
               </div>
@@ -602,7 +572,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
       </div>
 
       {/* ==============================================================
-          SECTION 5: SECOND HEADING (Exact Requirement)
+          5. SECOND HEADING (Exact Requirement)
           "Activate your bot to get started"
           ============================================================== */}
       <div className="text-center pt-3 pb-1">
@@ -615,7 +585,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
       </div>
 
       {/* ==============================================================
-          SECTION 6: MT5 CONNECTION SETUP
+          6. MT5 CONNECTION SETUP
           - Account ID / Login input
           - Broker Server input with helpful examples:
             Exness, IC Markets, Pepperstone, XM, HFM, FTMO, and others
@@ -643,7 +613,6 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
             </div>
           </div>
 
-          {/* Secure connection indicator */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#021016] border border-cyan-500/30">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -694,7 +663,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
               className="w-full h-12 px-4 rounded-xl bg-[#020e15]/90 border border-cyan-900/60 focus:border-[#00f2fe] focus:ring-1 focus:ring-[#00f2fe] text-white font-mono text-sm tracking-wide placeholder:text-cyan-900/70 outline-none transition-all shadow-inner"
             />
 
-            {/* Helpful Broker Examples: Exness, IC Markets, Pepperstone, XM, HFM, FTMO, and others */}
+            {/* Helpful Broker Examples */}
             <div className="mt-2 space-y-1.5">
               <span className="text-[10px] font-mono text-purple-300/80 block">
                 Helpful broker examples (click to select or type manually):
@@ -740,19 +709,18 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
               </button>
             </div>
             <p className="text-[10px] font-mono text-cyan-300/60 mt-1">
-              Protected by end-to-end ephemeral encryption. Never stored in plaintext.
+              Protected by end-to-end encryption. Never stored in plaintext.
             </p>
           </div>
         </div>
 
         {/* ==============================================================
-            SECTION 7: CONNECT BOT BUTTON (Exact Requirement)
+            7. CONNECT BOT BUTTON (Strict Requirement)
             Prominent button labelled: CONNECT BOT
             When clicked:
-            - Display the following exact message:
-              "Please enter the correct transaction ID"
-            - Do NOT display generic errors, 404s, backend crash messages, or stack traces.
-            - Keep the user on the page so they can complete the payment verification and retry.
+            Display strictly and only:
+            "Please enter the correct transaction ID of payment"
+            (No appended text)
             ============================================================== */}
         <div className="pt-2 space-y-3">
           <button
@@ -774,12 +742,12 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
             )}
           </button>
 
-          {/* Exact Action Message Display: "Please enter the correct transaction ID" */}
+          {/* Strict Message Display: "Please enter the correct transaction ID of payment" */}
           {connectBotMessage && (
             <div className="p-4 rounded-2xl bg-rose-950/70 border border-rose-500/70 text-rose-200 text-xs font-mono space-y-1 shadow-lg">
               <div className="flex items-center gap-2 font-bold text-rose-300">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span className="uppercase tracking-wider">Verification Required</span>
+                <span className="uppercase tracking-wider">Notice</span>
               </div>
               <p className="text-white font-mono text-xs font-semibold pl-6">
                 {connectBotMessage}
@@ -808,7 +776,7 @@ export const TradingEngineDashboard: React.FC<TradingEngineDashboardProps> = ({
           <span className="text-[10px] text-purple-400 uppercase tracking-wider">
             Engine Integrity & Verification
           </span>
-          <span className="text-[10px] text-cyan-300">PROMPIPS v4.2 PROTOCOL</span>
+          <span className="text-[10px] text-cyan-300">PROMPIPS PROTOCOL</span>
         </div>
 
         <p className="text-slate-300/80 text-[11px] leading-relaxed">

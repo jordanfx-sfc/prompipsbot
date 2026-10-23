@@ -3,40 +3,28 @@ import {
   ShieldCheck,
   LogOut,
   Settings,
-  DollarSign,
   CreditCard,
   FileCheck,
   Bot,
   RefreshCw,
-  Plus,
-  Trash2,
-  Edit2,
-  Check,
   X,
   AlertCircle,
   CheckCircle2,
-  Cpu,
-  Clock,
-  Eye,
   Key,
   Shield,
-  Layers,
+  Save,
+  Database,
+  Lock,
 } from 'lucide-react';
 import {
   AdminDashboardData,
   WebsiteSettings,
-  PricingSettings,
-  PaymentMethod,
   BotSettings,
 } from '../types';
 import {
   fetchAdminDashboardData,
+  saveAdminPaymentSettings,
   saveAdminSettings,
-  saveAdminPricing,
-  addAdminPaymentMethod,
-  updateAdminPaymentMethod,
-  deleteAdminPaymentMethod,
-  toggleAdminPaymentMethod,
   updateAdminTransactionStatus,
   saveAdminBotSettings,
   toggleAdminBackendBridge,
@@ -55,25 +43,30 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
   onClose,
   onDataChanged,
 }) => {
-  const [activeTab, setActiveTab] = useState<'general' | 'pricing' | 'payments' | 'transactions' | 'bot' | 'security'>('general');
+  const [activeTab, setActiveTab] = useState<'payments' | 'transactions' | 'bot' | 'general' | 'security'>('payments');
   const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusAlert, setStatusAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // General Settings Form
+  // Dedicated Payment Settings Form (TRC20, ERC20, BTC, Price, Instructions)
+  const [paymentSettingsForm, setPaymentSettingsForm] = useState({
+    price: 50,
+    currency: 'USD',
+    trc20Enabled: true,
+    trc20Address: 'TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC',
+    trc20Instructions: 'Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.',
+    erc20Enabled: true,
+    erc20Address: '0x4984ba14236737ada963abff469f2d25821c92dc',
+    erc20Instructions: 'Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.',
+    btcEnabled: true,
+    btcAddress: '393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br',
+    btcInstructions: 'Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.',
+  });
+
+  // General Settings Form (No support contacts)
   const [settingsForm, setSettingsForm] = useState<WebsiteSettings>({
     websiteName: '',
     websiteDescription: '',
-    contactEmail: '',
-    whatsappSupport: '',
-    telegramSupport: '',
-    otherSupport: '',
-  });
-
-  // Pricing Form
-  const [pricingForm, setPricingForm] = useState<PricingSettings>({
-    price: 50,
-    currency: 'USD',
   });
 
   // Bot Settings Form
@@ -83,19 +76,6 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     botActivationEnabled: true,
     mt5IntegrationStatus: '',
     publicStatusMessage: '',
-  });
-
-  // Payment Method Modal / Edit State
-  const [isEditingPayment, setIsEditingPayment] = useState(false);
-  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
-  const [paymentForm, setPaymentForm] = useState<Omit<PaymentMethod, 'id' | 'createdAt'>>({
-    name: '',
-    accountHolder: '',
-    accountNumberOrAddress: '',
-    network: '',
-    instructions: '',
-    qrCodeUrl: '',
-    enabled: true,
   });
 
   // Security Form
@@ -111,8 +91,26 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
       const res = await fetchAdminDashboardData();
       setData(res);
       setSettingsForm(res.settings);
-      setPricingForm(res.pricing);
       setBotForm(res.botSettings);
+
+      // Populate Dedicated Payment Settings Form
+      const trcMethod = res.paymentMethods.find((m) => m.id === 'pm-trc20' || m.name.toLowerCase().includes('trc'));
+      const ercMethod = res.paymentMethods.find((m) => m.id === 'pm-erc20' || m.name.toLowerCase().includes('erc'));
+      const btcMethod = res.paymentMethods.find((m) => m.id === 'pm-btc' || m.name.toLowerCase().includes('btc'));
+
+      setPaymentSettingsForm({
+        price: res.pricing.price || 50,
+        currency: res.pricing.currency || 'USD',
+        trc20Enabled: trcMethod ? trcMethod.enabled : true,
+        trc20Address: trcMethod ? trcMethod.accountNumberOrAddress : 'TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC',
+        trc20Instructions: trcMethod?.instructions || 'Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.',
+        erc20Enabled: ercMethod ? ercMethod.enabled : true,
+        erc20Address: ercMethod ? ercMethod.accountNumberOrAddress : '0x4984ba14236737ada963abff469f2d25821c92dc',
+        erc20Instructions: ercMethod?.instructions || 'Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.',
+        btcEnabled: btcMethod ? btcMethod.enabled : true,
+        btcAddress: btcMethod ? btcMethod.accountNumberOrAddress : '393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br',
+        btcInstructions: btcMethod?.instructions || 'Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.',
+      });
     } catch (err: any) {
       setStatusAlert({ type: 'error', message: err.message || 'Failed to load administrator data.' });
     } finally {
@@ -132,7 +130,70 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     onDataChanged();
   };
 
-  // Section A: Save General Settings
+  // Dedicated Save Payment Settings Handler
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSection('paymentSettings');
+    setStatusAlert(null);
+
+    // Client-side validations
+    const priceNum = Number(paymentSettingsForm.price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      setStatusAlert({ type: 'error', message: 'Subscription price must be a positive number.' });
+      setSavingSection(null);
+      return;
+    }
+
+    if (paymentSettingsForm.trc20Enabled && !paymentSettingsForm.trc20Address.trim()) {
+      setStatusAlert({ type: 'error', message: 'TRC20 is enabled but wallet address is empty.' });
+      setSavingSection(null);
+      return;
+    }
+
+    if (paymentSettingsForm.erc20Enabled && !paymentSettingsForm.erc20Address.trim()) {
+      setStatusAlert({ type: 'error', message: 'ERC20 is enabled but wallet address is empty.' });
+      setSavingSection(null);
+      return;
+    }
+
+    if (paymentSettingsForm.btcEnabled && !paymentSettingsForm.btcAddress.trim()) {
+      setStatusAlert({ type: 'error', message: 'BTC is enabled but wallet address is empty.' });
+      setSavingSection(null);
+      return;
+    }
+
+    try {
+      const res = await saveAdminPaymentSettings({
+        price: priceNum,
+        currency: paymentSettingsForm.currency,
+        trc20Enabled: paymentSettingsForm.trc20Enabled,
+        trc20Address: paymentSettingsForm.trc20Address.trim(),
+        trc20Instructions: paymentSettingsForm.trc20Instructions,
+        erc20Enabled: paymentSettingsForm.erc20Enabled,
+        erc20Address: paymentSettingsForm.erc20Address.trim(),
+        erc20Instructions: paymentSettingsForm.erc20Instructions,
+        btcEnabled: paymentSettingsForm.btcEnabled,
+        btcAddress: paymentSettingsForm.btcAddress.trim(),
+        btcInstructions: paymentSettingsForm.btcInstructions,
+      });
+
+      setStatusAlert({
+        type: 'success',
+        message: res.message || 'Payment settings successfully saved and persisted to server-side storage.',
+      });
+      onDataChanged();
+      await loadData();
+    } catch (err: any) {
+      setStatusAlert({
+        type: 'error',
+        message: err.message || 'Failed to save payment settings. Please check the values and retry.',
+      });
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  // Save General Settings
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSection('settings');
@@ -149,100 +210,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
-  // Section B: Save Pricing
-  const handleSavePricing = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingSection('pricing');
-    setStatusAlert(null);
-    try {
-      await saveAdminPricing(pricingForm.price, pricingForm.currency);
-      setStatusAlert({
-        type: 'success',
-        message: `Subscription price successfully updated to $${pricingForm.price} ${pricingForm.currency}. Public dashboard updated.`,
-      });
-      onDataChanged();
-      loadData();
-    } catch (err: any) {
-      setStatusAlert({ type: 'error', message: err.message || 'Failed to update pricing.' });
-    } finally {
-      setSavingSection(null);
-    }
-  };
-
-  // Section C: Payment Methods
-  const handleOpenAddPayment = () => {
-    setEditingPaymentId(null);
-    setPaymentForm({
-      name: '',
-      accountHolder: '',
-      accountNumberOrAddress: '',
-      network: '',
-      instructions: '',
-      qrCodeUrl: '',
-      enabled: true,
-    });
-    setIsEditingPayment(true);
-  };
-
-  const handleOpenEditPayment = (method: PaymentMethod) => {
-    setEditingPaymentId(method.id);
-    setPaymentForm({
-      name: method.name,
-      accountHolder: method.accountHolder || '',
-      accountNumberOrAddress: method.accountNumberOrAddress,
-      network: method.network || '',
-      instructions: method.instructions || '',
-      qrCodeUrl: method.qrCodeUrl || '',
-      enabled: method.enabled,
-    });
-    setIsEditingPayment(true);
-  };
-
-  const handleSavePaymentMethod = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingSection('paymentMethod');
-    setStatusAlert(null);
-    try {
-      if (editingPaymentId) {
-        await updateAdminPaymentMethod(editingPaymentId, paymentForm);
-        setStatusAlert({ type: 'success', message: `Payment method "${paymentForm.name}" updated successfully.` });
-      } else {
-        await addAdminPaymentMethod(paymentForm);
-        setStatusAlert({ type: 'success', message: `New payment method "${paymentForm.name}" created and saved.` });
-      }
-      setIsEditingPayment(false);
-      onDataChanged();
-      loadData();
-    } catch (err: any) {
-      setStatusAlert({ type: 'error', message: err.message || 'Failed to save payment method.' });
-    } finally {
-      setSavingSection(null);
-    }
-  };
-
-  const handleDeletePayment = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to permanently delete the "${name}" payment method?`)) return;
-    try {
-      await deleteAdminPaymentMethod(id);
-      setStatusAlert({ type: 'success', message: `Payment method "${name}" deleted.` });
-      onDataChanged();
-      loadData();
-    } catch (err: any) {
-      setStatusAlert({ type: 'error', message: err.message || 'Failed to delete payment method.' });
-    }
-  };
-
-  const handleTogglePayment = async (id: string, currentStatus: boolean) => {
-    try {
-      await toggleAdminPaymentMethod(id, !currentStatus);
-      onDataChanged();
-      loadData();
-    } catch (err: any) {
-      setStatusAlert({ type: 'error', message: err.message || 'Failed to toggle payment method.' });
-    }
-  };
-
-  // Section D: Update Transaction Status
+  // Update Transaction Status
   const handleUpdateTxStatus = async (id: string, newStatus: 'pending' | 'verified' | 'rejected') => {
     try {
       await updateAdminTransactionStatus(id, newStatus);
@@ -254,7 +222,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
-  // Section E: Save Bot Settings
+  // Save Bot Settings
   const handleSaveBotSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingSection('bot');
@@ -271,7 +239,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
-  // Section E: Toggle Backend Bridge
+  // Toggle Backend Bridge
   const handleToggleBridge = async () => {
     try {
       const res = await toggleAdminBackendBridge();
@@ -283,7 +251,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
     }
   };
 
-  // Section F: Change Password
+  // Change Password
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPassword || newPassword.length < 8) {
@@ -309,6 +277,8 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
   if (!isOpen) return null;
 
+  const storageStatus = data?.storageStatus;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/90 backdrop-blur-lg overflow-y-auto">
       <div className="relative w-full max-w-4xl bg-[#090518] border border-purple-600/70 rounded-3xl p-4 sm:p-6 shadow-2xl glow-purple text-slate-100 my-auto max-h-[92vh] flex flex-col">
@@ -324,7 +294,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                   ADMIN CONTROL CENTER
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-[10px] font-mono text-cyan-300">
-                  ADMINISTRATOR
+                  OFFICIAL
                 </span>
               </div>
               <p className="text-xs font-mono text-purple-300/80">
@@ -336,26 +306,49 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={loadData}
-              className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:text-white transition-colors cursor-pointer"
               title="Refresh Data"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300 hover:text-white hover:bg-rose-900/50 text-xs font-mono transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-950/40 border border-rose-800/50 text-rose-300 hover:text-white hover:bg-rose-900/50 text-xs font-mono transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-slate-400 hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-purple-950/60 border border-purple-800/60 text-slate-400 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
+
+        {/* Storage Persistence Status Banner */}
+        {storageStatus && (
+          <div
+            className={`mt-3 p-3 rounded-2xl text-xs flex items-center justify-between border shrink-0 font-mono ${
+              storageStatus.connected
+                ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                : 'bg-indigo-950/40 border-indigo-500/40 text-indigo-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-cyan-400 shrink-0" />
+              <span>
+                <strong>Storage Engine:</strong> {storageStatus.message}
+              </span>
+            </div>
+            {storageStatus.lastSaveError && (
+              <span className="text-rose-400 text-[10px] font-bold">
+                Save warning: {storageStatus.lastSaveError}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Global Status Banner */}
         {statusAlert && (
@@ -374,7 +367,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
               )}
               <span className="font-mono">{statusAlert.message}</span>
             </div>
-            <button onClick={() => setStatusAlert(null)} className="text-slate-400 hover:text-white">
+            <button onClick={() => setStatusAlert(null)} className="text-slate-400 hover:text-white cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -383,44 +376,20 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
         {/* Navigation Tabs */}
         <div className="mt-4 flex gap-1.5 overflow-x-auto pb-2 border-b border-purple-950 shrink-0 scrollbar-none">
           <button
-            onClick={() => setActiveTab('general')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
-              activeTab === 'general'
-                ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
-                : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-            General
-          </button>
-
-          <button
-            onClick={() => setActiveTab('pricing')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
-              activeTab === 'pricing'
-                ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
-                : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <DollarSign className="w-3.5 h-3.5" />
-            Subscription Pricing
-          </button>
-
-          <button
             onClick={() => setActiveTab('payments')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'payments'
-                ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
+                ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md ring-1 ring-[#00f2fe]/40'
                 : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
             }`}
           >
-            <CreditCard className="w-3.5 h-3.5" />
-            Payment Methods ({data?.paymentMethods.length || 0})
+            <CreditCard className="w-3.5 h-3.5 text-[#00f2fe]" />
+            Payment Settings (Wallets & Price)
           </button>
 
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'transactions'
                 ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
                 : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
@@ -432,7 +401,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
 
           <button
             onClick={() => setActiveTab('bot')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'bot'
                 ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
                 : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
@@ -443,8 +412,20 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('general')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
+              activeTab === 'general'
+                ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
+                : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            General
+          </button>
+
+          <button
             onClick={() => setActiveTab('security')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-mono tracking-wide flex items-center gap-2 transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'security'
                 ? 'bg-purple-900/70 border border-purple-500 text-cyan-300 shadow-md'
                 : 'bg-[#0f0a24] border border-purple-950 text-slate-400 hover:text-slate-200'
@@ -460,386 +441,294 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
           {loading ? (
             <div className="py-16 text-center text-xs font-mono text-purple-300 flex flex-col items-center gap-2">
               <RefreshCw className="w-6 h-6 animate-spin text-[#00f2fe]" />
-              <span>Loading encrypted administrator settings...</span>
+              <span>Loading administrator settings...</span>
             </div>
           ) : (
             <>
-              {/* TAB 1: GENERAL SETTINGS */}
-              {activeTab === 'general' && (
-                <form onSubmit={handleSaveSettings} className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-4">
-                    <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                      A. GENERAL WEBSITE SETTINGS
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* TAB 1: DEDICATED PAYMENT SETTINGS (Requirement 2) */}
+              {activeTab === 'payments' && (
+                <form onSubmit={handleSavePaymentSettings} className="space-y-5">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#0f0a24] border border-purple-900/70 space-y-5">
+                    <div className="flex items-center justify-between border-b border-purple-900/50 pb-3">
                       <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                          Website Name:
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsForm.websiteName}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, websiteName: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                          Official Contact Email:
-                        </label>
-                        <input
-                          type="email"
-                          value={settingsForm.contactEmail}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, contactEmail: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                          WhatsApp Support Number:
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsForm.whatsappSupport}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, whatsappSupport: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                          Telegram Support Channel / Handle:
-                        </label>
-                        <input
-                          type="text"
-                          value={settingsForm.telegramSupport}
-                          onChange={(e) => setSettingsForm({ ...settingsForm, telegramSupport: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                        />
+                        <h3 className="font-display font-bold text-base sm:text-lg text-[#00f2fe] flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-[#00f2fe]" />
+                          CRYPTOCURRENCY PAYMENT SETTINGS
+                        </h3>
+                        <p className="text-xs text-purple-300/80 font-mono mt-0.5">
+                          Configure wallet addresses, active networks, and subscription price. Changes persist across redeployments and update the public menu immediately.
+                        </p>
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                        Website Meta Description:
+                    {/* Subscription Price Field */}
+                    <div className="p-4 rounded-xl bg-[#080516] border border-purple-800/60 max-w-md space-y-2">
+                      <label className="block text-xs font-mono uppercase tracking-wider text-purple-200 font-bold">
+                        Editable Subscription Price:
                       </label>
-                      <textarea
-                        rows={2}
-                        value={settingsForm.websiteDescription}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, websiteDescription: e.target.value })}
-                        className="w-full p-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                        Additional Support & SLA Information:
-                      </label>
-                      <input
-                        type="text"
-                        value={settingsForm.otherSupport}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, otherSupport: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={savingSection === 'settings'}
-                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-600 to-cyan-600 hover:from-purple-600 hover:to-cyan-500 text-white font-display font-bold text-xs tracking-wider uppercase shadow-md glow-purple cursor-pointer"
-                    >
-                      {savingSection === 'settings' ? 'SAVING...' : 'SAVE GENERAL SETTINGS'}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* TAB 2: PRICING */}
-              {activeTab === 'pricing' && (
-                <form onSubmit={handleSavePricing} className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-4">
-                    <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                      B. BOT SUBSCRIPTION PRICING CONFIGURATION
-                    </h3>
-                    <p className="text-xs text-purple-300/80">
-                      Modifying this price automatically updates the public dashboard, MT5 gate, and payment verification screens across all devices.
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-                      <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1 font-semibold">
-                          Subscription Price ($):
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono text-sm font-bold">
                             $
                           </span>
                           <input
                             type="number"
                             min="1"
                             step="1"
-                            value={pricingForm.price}
-                            onChange={(e) => setPricingForm({ ...pricingForm, price: Number(e.target.value) })}
-                            className="w-full h-11 pl-8 pr-4 rounded-xl bg-[#061e28]/90 border border-purple-800 text-sm font-mono font-bold text-white focus:border-[#00f2fe]"
+                            value={paymentSettingsForm.price}
+                            onChange={(e) =>
+                              setPaymentSettingsForm({
+                                ...paymentSettingsForm,
+                                price: Number(e.target.value),
+                              })
+                            }
+                            required
+                            className="w-full h-11 pl-8 pr-4 rounded-xl bg-[#03151d] border border-purple-700 focus:border-[#00f2fe] text-sm font-mono font-bold text-white outline-none"
                           />
                         </div>
+                        <input
+                          type="text"
+                          value={paymentSettingsForm.currency}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              currency: e.target.value.toUpperCase(),
+                            })
+                          }
+                          className="w-24 h-11 px-3 text-center rounded-xl bg-[#03151d] border border-purple-700 text-sm font-mono font-bold text-white uppercase outline-none"
+                        />
+                      </div>
+                      <span className="text-[10px] font-mono text-cyan-300/80 block">
+                        Displayed on public website: ${paymentSettingsForm.price} {paymentSettingsForm.currency}
+                      </span>
+                    </div>
+
+                    {/* 1. TRC20 (USDT — TRON Network) */}
+                    <div className="p-4 rounded-xl bg-[#080516] border border-cyan-950/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-display font-bold text-sm text-white">
+                            1. TRC20 (USDT — TRON Network)
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold">
+                            TRON
+                          </span>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={paymentSettingsForm.trc20Enabled}
+                            onChange={(e) =>
+                              setPaymentSettingsForm({
+                                ...paymentSettingsForm,
+                                trc20Enabled: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 accent-cyan-400 rounded"
+                          />
+                          <span className="text-xs font-mono font-bold text-purple-200">
+                            {paymentSettingsForm.trc20Enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </label>
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-mono text-purple-300 mb-1 font-semibold">
-                          Currency Code:
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          Editable TRC20 Wallet Address:
                         </label>
                         <input
                           type="text"
-                          value={pricingForm.currency}
-                          onChange={(e) => setPricingForm({ ...pricingForm, currency: e.target.value.toUpperCase() })}
-                          className="w-full h-11 px-4 rounded-xl bg-[#061e28]/90 border border-purple-800 text-sm font-mono font-bold text-white uppercase"
+                          value={paymentSettingsForm.trc20Address}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              trc20Address: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC"
+                          className="w-full h-11 px-3.5 rounded-xl bg-[#03151d] border border-purple-800 focus:border-[#00f2fe] text-xs font-mono text-cyan-200 outline-none select-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          TRC20 Payment Instructions:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={paymentSettingsForm.trc20Instructions}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              trc20Instructions: e.target.value,
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-slate-200 outline-none"
                         />
                       </div>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-[#061822] border border-cyan-800/40 text-xs font-mono text-cyan-200">
-                      Live Preview: Visitors will see: <strong>${pricingForm.price} {pricingForm.currency}</strong> for full bot activation.
+                    {/* 2. ERC20 (USDT — Ethereum Network) */}
+                    <div className="p-4 rounded-xl bg-[#080516] border border-cyan-950/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-display font-bold text-sm text-white">
+                            2. ERC20 (USDT — Ethereum Network)
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold">
+                            ETHEREUM
+                          </span>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={paymentSettingsForm.erc20Enabled}
+                            onChange={(e) =>
+                              setPaymentSettingsForm({
+                                ...paymentSettingsForm,
+                                erc20Enabled: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 accent-cyan-400 rounded"
+                          />
+                          <span className="text-xs font-mono font-bold text-purple-200">
+                            {paymentSettingsForm.erc20Enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          Editable ERC20 Wallet Address:
+                        </label>
+                        <input
+                          type="text"
+                          value={paymentSettingsForm.erc20Address}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              erc20Address: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 0x4984ba14236737ada963abff469f2d25821c92dc"
+                          className="w-full h-11 px-3.5 rounded-xl bg-[#03151d] border border-purple-800 focus:border-[#00f2fe] text-xs font-mono text-cyan-200 outline-none select-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          ERC20 Payment Instructions:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={paymentSettingsForm.erc20Instructions}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              erc20Instructions: e.target.value,
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-slate-200 outline-none"
+                        />
+                      </div>
                     </div>
 
-                    <button
-                      type="submit"
-                      disabled={savingSection === 'pricing'}
-                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ff0055] via-[#ff1e56] to-[#fb7185] text-white font-display font-bold text-xs tracking-wider uppercase shadow-md glow-pink cursor-pointer"
-                    >
-                      {savingSection === 'pricing' ? 'SAVING...' : 'SAVE SUBSCRIPTION PRICE'}
-                    </button>
+                    {/* 3. BTC (Bitcoin Network) */}
+                    <div className="p-4 rounded-xl bg-[#080516] border border-cyan-950/80 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-display font-bold text-sm text-white">
+                            3. BTC (Bitcoin Network)
+                          </span>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 border border-cyan-500/40 text-cyan-300 font-bold">
+                            BITCOIN
+                          </span>
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={paymentSettingsForm.btcEnabled}
+                            onChange={(e) =>
+                              setPaymentSettingsForm({
+                                ...paymentSettingsForm,
+                                btcEnabled: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 accent-cyan-400 rounded"
+                          />
+                          <span className="text-xs font-mono font-bold text-purple-200">
+                            {paymentSettingsForm.btcEnabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          Editable BTC Wallet Address:
+                        </label>
+                        <input
+                          type="text"
+                          value={paymentSettingsForm.btcAddress}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              btcAddress: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br"
+                          className="w-full h-11 px-3.5 rounded-xl bg-[#03151d] border border-purple-800 focus:border-[#00f2fe] text-xs font-mono text-cyan-200 outline-none select-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          BTC Payment Instructions:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={paymentSettingsForm.btcInstructions}
+                          onChange={(e) =>
+                            setPaymentSettingsForm({
+                              ...paymentSettingsForm,
+                              btcInstructions: e.target.value,
+                            })
+                          }
+                          className="w-full p-2.5 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-slate-200 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Prominent Save Payment Settings Button */}
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={savingSection === 'paymentSettings'}
+                        className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-600 to-cyan-600 hover:from-purple-600 hover:to-cyan-500 text-white font-display font-extrabold text-xs sm:text-sm tracking-widest uppercase shadow-xl glow-purple flex items-center justify-center gap-2 cursor-pointer transition-transform active:scale-[0.98] disabled:opacity-50"
+                      >
+                        {savingSection === 'paymentSettings' ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin text-cyan-300" />
+                            SAVING PAYMENT SETTINGS...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 text-cyan-300" />
+                            SAVE PAYMENT SETTINGS
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}
 
-              {/* TAB 3: PAYMENT METHODS */}
-              {activeTab === 'payments' && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-purple-900/60">
-                    <div>
-                      <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                        C. CONFIGURED PAYMENT METHODS
-                      </h3>
-                      <p className="text-xs text-purple-300/80">
-                        Only enabled payment methods are shown to public visitors.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleOpenAddPayment}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-slate-950 font-display font-bold text-xs tracking-wider uppercase transition-colors"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Method
-                    </button>
-                  </div>
-
-                  {/* List of Methods */}
-                  <div className="space-y-3">
-                    {data?.paymentMethods.map((pm) => (
-                      <div
-                        key={pm.id}
-                        className={`p-4 rounded-2xl border transition-all ${
-                          pm.enabled
-                            ? 'bg-[#0f0a24] border-purple-800/80 shadow-md'
-                            : 'bg-[#080516]/60 border-slate-800 opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-display font-bold text-sm text-white">
-                                {pm.name}
-                              </h4>
-                              <span
-                                className={`px-2 py-0.5 rounded text-[9px] font-mono uppercase font-bold border ${
-                                  pm.enabled
-                                    ? 'bg-emerald-950/80 border-emerald-500/50 text-[#00f59b]'
-                                    : 'bg-slate-800 border-slate-700 text-slate-400'
-                                }`}
-                              >
-                                {pm.enabled ? 'ACTIVE (PUBLIC)' : 'DISABLED'}
-                              </span>
-                              {pm.network && (
-                                <span className="text-[10px] font-mono text-purple-300">
-                                  [{pm.network}]
-                                </span>
-                              )}
-                            </div>
-
-                            {pm.accountHolder && (
-                              <p className="text-xs font-mono text-slate-300">
-                                Recipient: <span className="text-cyan-300">{pm.accountHolder}</span>
-                              </p>
-                            )}
-
-                            <div className="p-2 rounded-lg bg-[#040e16] border border-cyan-950/60 font-mono text-xs text-cyan-200 select-all break-all">
-                              {pm.accountNumberOrAddress}
-                            </div>
-
-                            {pm.instructions && (
-                              <p className="text-[11px] text-purple-300/80 font-mono">
-                                {pm.instructions}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col gap-1.5 shrink-0">
-                            <button
-                              onClick={() => handleTogglePayment(pm.id, pm.enabled)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-mono uppercase font-bold transition-colors ${
-                                pm.enabled
-                                  ? 'bg-amber-950/80 border border-amber-600/50 text-amber-300'
-                                  : 'bg-emerald-950/80 border border-emerald-600/50 text-emerald-300'
-                              }`}
-                            >
-                              {pm.enabled ? 'Disable' : 'Enable'}
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditPayment(pm)}
-                              className="p-1.5 rounded-lg bg-purple-950 border border-purple-800 text-purple-300 hover:text-white flex items-center justify-center transition-colors"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePayment(pm.id, pm.name)}
-                              className="p-1.5 rounded-lg bg-rose-950/50 border border-rose-800 text-rose-300 hover:text-white flex items-center justify-center transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Add / Edit Form Modal */}
-                  {isEditingPayment && (
-                    <div className="p-4 rounded-2xl bg-[#080415] border border-cyan-600/50 space-y-3">
-                      <div className="flex justify-between items-center border-b border-purple-950 pb-2">
-                        <h4 className="font-display font-bold text-sm text-[#00f2fe]">
-                          {editingPaymentId ? 'EDIT PAYMENT METHOD' : 'ADD NEW PAYMENT METHOD'}
-                        </h4>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingPayment(false)}
-                          className="text-slate-400 hover:text-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                            Method Name (e.g. USDT TRC20, Mobile Money):
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={paymentForm.name}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, name: e.target.value })}
-                            className="w-full h-9 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                            Network / Category (e.g. TRC-20, MTN MoMo):
-                          </label>
-                          <input
-                            type="text"
-                            value={paymentForm.network}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, network: e.target.value })}
-                            className="w-full h-9 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                            Account Holder / Recipient Name:
-                          </label>
-                          <input
-                            type="text"
-                            value={paymentForm.accountHolder}
-                            onChange={(e) => setPaymentForm({ ...paymentForm, accountHolder: e.target.value })}
-                            className="w-full h-9 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                            Wallet Address / Account Number:
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            value={paymentForm.accountNumberOrAddress}
-                            onChange={(e) =>
-                              setPaymentForm({ ...paymentForm, accountNumberOrAddress: e.target.value })
-                            }
-                            className="w-full h-9 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                          Payment Instructions (Shown to user during payment):
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={paymentForm.instructions}
-                          onChange={(e) => setPaymentForm({ ...paymentForm, instructions: e.target.value })}
-                          className="w-full p-2.5 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="enabled-toggle"
-                          checked={paymentForm.enabled}
-                          onChange={(e) => setPaymentForm({ ...paymentForm, enabled: e.target.checked })}
-                          className="w-4 h-4 accent-cyan-400"
-                        />
-                        <label htmlFor="enabled-toggle" className="text-xs font-mono text-purple-200 cursor-pointer">
-                          Enable this payment method immediately for public visitors
-                        </label>
-                      </div>
-
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={handleSavePaymentMethod}
-                          disabled={savingSection === 'paymentMethod'}
-                          className="px-4 py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-slate-950 font-display font-bold text-xs uppercase"
-                        >
-                          {savingSection === 'paymentMethod' ? 'SAVING...' : 'SAVE METHOD'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditingPayment(false)}
-                          className="px-4 py-2 rounded-xl bg-purple-950 border border-purple-800 text-purple-300 text-xs font-mono"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 4: TRANSACTIONS & VERIFICATION */}
+              {/* TAB 2: TRANSACTIONS & VERIFICATION */}
               {activeTab === 'transactions' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between pb-2 border-b border-purple-900/60">
                     <div>
                       <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                        D. TRANSACTION VERIFICATION & AUDIT RECORDS
+                        CUSTOMER TRANSACTION VERIFICATIONS
                       </h3>
                       <p className="text-xs text-purple-300/80">
                         Review customer submitted TxIDs and update verification status.
@@ -895,7 +784,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                   {tx.status !== 'verified' && (
                                     <button
                                       onClick={() => handleUpdateTxStatus(tx.id, 'verified')}
-                                      className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/50 text-[10px] hover:bg-emerald-900"
+                                      className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-600/50 text-[10px] hover:bg-emerald-900 cursor-pointer"
                                       title="Mark as Verified"
                                     >
                                       Verify
@@ -904,7 +793,7 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                                   {tx.status !== 'rejected' && (
                                     <button
                                       onClick={() => handleUpdateTxStatus(tx.id, 'rejected')}
-                                      className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-600/50 text-[10px] hover:bg-rose-900"
+                                      className="px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-600/50 text-[10px] hover:bg-rose-900 cursor-pointer"
                                       title="Mark as Rejected"
                                     >
                                       Reject
@@ -921,12 +810,12 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                 </div>
               )}
 
-              {/* TAB 5: BOT SETTINGS */}
+              {/* TAB 3: BOT SETTINGS */}
               {activeTab === 'bot' && (
                 <form onSubmit={handleSaveBotSettings} className="space-y-4">
                   <div className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-4">
                     <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                      E. BOT ENGINE & ACTIVATION POLICIES
+                      BOT ENGINE & ACTIVATION POLICIES
                     </h3>
 
                     {/* Activation Policy Toggle */}
@@ -936,14 +825,14 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           Bot Subscription Activation Gate
                         </span>
                         <p className="text-[11px] font-mono text-purple-300/80 mt-0.5">
-                          When disabled, attempts to start the bot return: <em>"Bot activation is currently unavailable. Please contact support."</em>
+                          When disabled, attempts to start the bot return pause notice.
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setBotForm({ ...botForm, botActivationEnabled: !botForm.botActivationEnabled })}
-                          className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold border transition-colors ${
+                          className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold border transition-colors cursor-pointer ${
                             botForm.botActivationEnabled
                               ? 'bg-emerald-950 border-emerald-500 text-[#00f59b]'
                               : 'bg-rose-950 border-rose-500 text-rose-300'
@@ -963,19 +852,19 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                           type="text"
                           value={botForm.displayName}
                           onChange={(e) => setBotForm({ ...botForm, displayName: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
+                          className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-cyan-100"
                         />
                       </div>
 
                       <div>
                         <label className="block text-[11px] font-mono text-purple-300 mb-1">
-                          MT5 Integration Status Note:
+                          MT5 Integration Status:
                         </label>
                         <input
                           type="text"
                           value={botForm.mt5IntegrationStatus}
                           onChange={(e) => setBotForm({ ...botForm, mt5IntegrationStatus: e.target.value })}
-                          className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
+                          className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-cyan-100"
                         />
                       </div>
                     </div>
@@ -988,75 +877,119 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                         type="text"
                         value={botForm.publicStatusMessage}
                         onChange={(e) => setBotForm({ ...botForm, publicStatusMessage: e.target.value })}
-                        className="w-full h-10 px-3 rounded-xl bg-[#061e28]/90 border border-purple-800 text-xs font-mono text-cyan-100"
+                        className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-cyan-100"
                       />
                     </div>
 
-                    {/* MT5 Execution Bridge Control */}
-                    <div className="p-3.5 rounded-xl bg-[#061822] border border-cyan-800/40 flex items-center justify-between">
+                    {/* Live Execution Bridge Toggle */}
+                    <div className="p-4 rounded-2xl bg-[#080415] border border-cyan-900/60 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-mono font-bold text-white block">
-                          Execution Bridge Microservice Socket:
+                        <span className="font-display font-bold text-sm text-cyan-200 block">
+                          Live MT5 Execution Bridge
                         </span>
-                        <span className="text-[10px] font-mono text-purple-300">
-                          {data?.runtimeState.tradingBackendAttached
-                            ? '● Bridge is ATTACHED (Allows Live execution when payment verified)'
-                            : '○ Bridge is DETACHED (Returns: "Trading engine is not connected yet.")'}
-                        </span>
+                        <p className="text-[11px] font-mono text-cyan-300/70 mt-0.5">
+                          Status: {data?.runtimeState.tradingBackendAttached ? 'ONLINE' : 'STANDBY'}
+                        </p>
                       </div>
                       <button
                         type="button"
                         onClick={handleToggleBridge}
-                        className="px-3 py-1.5 rounded-lg bg-purple-950 border border-purple-700 text-xs font-mono text-cyan-300 hover:border-cyan-400"
+                        className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold border transition-colors cursor-pointer ${
+                          data?.runtimeState.tradingBackendAttached
+                            ? 'bg-emerald-950 border-emerald-500 text-[#00f59b]'
+                            : 'bg-amber-950 border-amber-500 text-amber-300'
+                        }`}
                       >
-                        {data?.runtimeState.tradingBackendAttached ? 'Detach Bridge' : 'Attach Bridge'}
+                        {data?.runtimeState.tradingBackendAttached ? 'BRIDGE ATTACHED' : 'ATTACH BRIDGE'}
                       </button>
                     </div>
 
                     <button
                       type="submit"
                       disabled={savingSection === 'bot'}
-                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-700 via-indigo-600 to-cyan-600 text-white font-display font-bold text-xs tracking-wider uppercase shadow-md glow-purple cursor-pointer"
+                      className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-display font-bold text-xs uppercase cursor-pointer"
                     >
-                      {savingSection === 'bot' ? 'SAVING...' : 'SAVE BOT CONFIGURATION'}
+                      {savingSection === 'bot' ? 'SAVING...' : 'SAVE BOT SETTINGS'}
                     </button>
                   </div>
                 </form>
               )}
 
-              {/* TAB 6: SECURITY & AUDIT LOG */}
-              {activeTab === 'security' && (
-                <div className="space-y-4">
-                  {/* Password Change */}
-                  <form onSubmit={handleChangePassword} className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-3">
+              {/* TAB 4: GENERAL SETTINGS (Zero Support Contacts) */}
+              {activeTab === 'general' && (
+                <form onSubmit={handleSaveSettings} className="space-y-4">
+                  <div className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-4">
                     <h3 className="font-display font-bold text-base text-[#00f2fe]">
-                      ADMINISTRATOR CREDENTIALS
+                      WEBSITE INFORMATION
                     </h3>
-                    <p className="text-xs font-mono text-purple-300/80">
-                      Logged in as Administrator. Update administrator password securely.
-                    </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+                    <div>
+                      <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                        Website Name:
+                      </label>
+                      <input
+                        type="text"
+                        value={settingsForm.websiteName}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, websiteName: e.target.value })}
+                        className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-cyan-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                        Website Meta Description:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={settingsForm.websiteDescription}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, websiteDescription: e.target.value })}
+                        className="w-full p-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-cyan-100"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={savingSection === 'settings'}
+                      className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-display font-bold text-xs uppercase cursor-pointer"
+                    >
+                      {savingSection === 'settings' ? 'SAVING...' : 'SAVE SETTINGS'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* TAB 5: SECURITY & AUDIT */}
+              {activeTab === 'security' && (
+                <div className="space-y-5">
+                  <form onSubmit={handleChangePassword} className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-4">
+                    <h3 className="font-display font-bold text-base text-[#00f2fe] flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      CHANGE ADMINISTRATOR PASSWORD
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
                       <div>
-                        <label className="block text-[10px] font-mono text-purple-300 mb-1">
-                          New Password (min 8 chars):
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
+                          New Password:
                         </label>
                         <input
                           type="password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
-                          className="w-full h-10 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
+                          placeholder="Min 8 characters"
+                          className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-white"
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-mono text-purple-300 mb-1">
+                        <label className="block text-[11px] font-mono text-purple-300 mb-1">
                           Confirm New Password:
                         </label>
                         <input
                           type="password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full h-10 px-3 rounded-lg bg-[#040e16] border border-purple-800 text-xs font-mono text-cyan-200"
+                          placeholder="Repeat password"
+                          className="w-full h-10 px-3 rounded-xl bg-[#03151d] border border-purple-800 text-xs font-mono text-white"
                         />
                       </div>
                     </div>
@@ -1064,31 +997,28 @@ export const AdminDashboardModal: React.FC<AdminDashboardModalProps> = ({
                     <button
                       type="submit"
                       disabled={savingSection === 'security'}
-                      className="px-4 py-2 rounded-xl bg-purple-800 hover:bg-purple-700 text-white font-display font-bold text-xs uppercase"
+                      className="px-6 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white font-display font-bold text-xs uppercase cursor-pointer"
                     >
-                      {savingSection === 'security' ? 'UPDATING...' : 'UPDATE ADMIN PASSWORD'}
+                      {savingSection === 'security' ? 'UPDATING...' : 'UPDATE PASSWORD'}
                     </button>
                   </form>
 
-                  {/* Audit Trail */}
+                  {/* Audit Log */}
                   <div className="p-4 rounded-2xl bg-[#0f0a24] border border-purple-900/60 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-cyan-400" />
-                      <h4 className="font-display font-bold text-sm text-white">
-                        ADMINISTRATIVE AUDIT LOG
-                      </h4>
-                    </div>
-
+                    <h3 className="font-display font-bold text-base text-white flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-cyan-400" />
+                      ADMINISTRATIVE AUDIT LOG
+                    </h3>
                     <div className="max-h-60 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
                       {data?.auditLog.map((log) => (
-                        <div key={log.id} className="p-2.5 rounded-xl bg-[#070314] border border-purple-950 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                        <div key={log.id} className="p-2.5 rounded-lg bg-[#061822] border border-cyan-950 text-slate-300 flex items-start justify-between gap-2">
                           <div>
-                            <span className="font-bold text-cyan-300">[{log.action}]</span>{' '}
-                            <span className="text-slate-300">{log.details}</span>
+                            <span className="font-bold text-cyan-300 mr-2">[{log.action}]</span>
+                            <span className="text-[11px]">{log.details}</span>
                           </div>
-                          <div className="text-[10px] text-purple-400/80 shrink-0">
-                            {new Date(log.timestamp).toLocaleString()} · {log.actor}
-                          </div>
+                          <span className="text-[10px] text-purple-400 shrink-0">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </span>
                         </div>
                       ))}
                     </div>

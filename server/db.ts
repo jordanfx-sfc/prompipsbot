@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import pg from 'pg';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +14,7 @@ const DATA_DIR = IS_VERCEL
 const DB_FILE = path.resolve(DATA_DIR, 'prompips_db.json');
 const SEED_FILE = path.resolve(__dirname, '../data/prompips_db.json');
 
-// Default bcrypt hash (cost factor 12) for master credentials
+// Default bcrypt hash (cost factor 12) for master password: @Bossprompips1
 const DEFAULT_ADMIN_PASSWORD_HASH =
   process.env.ADMIN_PASSWORD_HASH ||
   '$2b$12$tgkYvlQ1XpBoZxTqxvTd7ekIczq7EbDQC/rcKJsJDiNMHTtEMbZG2';
@@ -30,10 +31,6 @@ export interface AdminUser {
 export interface WebsiteSettings {
   websiteName: string;
   websiteDescription: string;
-  contactEmail: string;
-  whatsappSupport: string;
-  telegramSupport: string;
-  otherSupport: string;
 }
 
 export interface PricingSettings {
@@ -42,7 +39,7 @@ export interface PricingSettings {
 }
 
 export interface PaymentMethod {
-  id: string;
+  id: string; // 'pm-trc20' | 'pm-erc20' | 'pm-btc'
   name: string;
   accountHolder: string;
   accountNumberOrAddress: string;
@@ -90,6 +87,46 @@ export interface DatabaseSchema {
   auditLog: AuditLogEntry[];
   botSettings: BotSettings;
 }
+
+// Initial 3 specified payment methods only
+export const INITIAL_PAYMENT_METHODS: PaymentMethod[] = [
+  {
+    id: 'pm-trc20',
+    name: 'TRC20',
+    accountHolder: 'PROMPIPS Official Treasury',
+    accountNumberOrAddress: 'TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC',
+    network: 'USDT — TRON Network',
+    instructions:
+      'Send exactly $50 USDT via TRON (TRC20) network. Zero or near-zero gas fee. Copy and paste your Transaction ID below after sending.',
+    qrCodeUrl: '',
+    enabled: true,
+    createdAt: Date.now() - 86400000,
+  },
+  {
+    id: 'pm-erc20',
+    name: 'ERC20',
+    accountHolder: 'PROMPIPS Official Multi-Sig',
+    accountNumberOrAddress: '0x4984ba14236737ada963abff469f2d25821c92dc',
+    network: 'USDT — Ethereum Network',
+    instructions:
+      'Send $50 USDT via Ethereum (ERC20) network. Copy and paste your Transaction Hash below after sending.',
+    qrCodeUrl: '',
+    enabled: true,
+    createdAt: Date.now() - 86400000,
+  },
+  {
+    id: 'pm-btc',
+    name: 'BTC',
+    accountHolder: 'PROMPIPS Bitcoin Cold Storage',
+    accountNumberOrAddress: '393j54v41LN7d6inoq6gRTTCbX2dQ3w5Br',
+    network: 'Bitcoin Network',
+    instructions:
+      'Send $50 equivalent in BTC via native Bitcoin network. Copy and paste your Transaction Hash below after sending.',
+    qrCodeUrl: '',
+    enabled: true,
+    createdAt: Date.now() - 86400000,
+  },
+];
 
 function getSessionSecret(): string {
   return (
@@ -156,65 +193,12 @@ function generateInitialDatabase(): DatabaseSchema {
       websiteName: 'PROMPIPS BOT',
       websiteDescription:
         'High-performance automated MT5 trading bot interface with real-time connection status and secure $50 subscription verification.',
-      contactEmail: 'support@prompipsbot.com',
-      whatsappSupport: '+1 (555) 789-2041',
-      telegramSupport: '@prompips_official',
-      otherSupport: '24/7 VIP Automated Strategy Desk & Account Support',
     },
     pricing: {
       price: 50,
       currency: 'USD',
     },
-    paymentMethods: [
-      {
-        id: 'pm-usdt-trc20',
-        name: 'USDT (TRC20)',
-        accountHolder: 'PROMPIPS Treasury',
-        accountNumberOrAddress: 'TYDnm7x9vQP3L4u1kQ2V8s8P7oF4Y9wK1b',
-        network: 'TRC-20 (Tron Network)',
-        instructions:
-          'Send exactly $50 USDT via TRC20 network. Zero or near-zero gas fee. Copy TXID from your wallet after sending.',
-        qrCodeUrl: '',
-        enabled: true,
-        createdAt: Date.now() - 86400000,
-      },
-      {
-        id: 'pm-usdt-erc20',
-        name: 'USDT (ERC20 / Polygon)',
-        accountHolder: 'PROMPIPS Multi-Sig',
-        accountNumberOrAddress: '0x892a0572e92c2b3e8c9b2f768b446a6e789bc44d',
-        network: 'Ethereum / Polygon EVM',
-        instructions:
-          'Send $50 USDT to this EVM address. Ensure you select either Ethereum or Polygon network.',
-        qrCodeUrl: '',
-        enabled: true,
-        createdAt: Date.now() - 86400000,
-      },
-      {
-        id: 'pm-bep20',
-        name: 'BEP20 (BNB Smart Chain)',
-        accountHolder: 'PROMPIPS Treasury',
-        accountNumberOrAddress: '',
-        network: 'BEP-20 (BNB Smart Chain)',
-        instructions:
-          'Send subscription fee via BEP20 (BNB Smart Chain). Awaiting administrator wallet address configuration.',
-        qrCodeUrl: '',
-        enabled: true,
-        createdAt: Date.now() - 86400000,
-      },
-      {
-        id: 'pm-momo',
-        name: 'Mobile Money / Bank Wire',
-        accountHolder: 'Michael Mukiibi (PROMPIPS Finance)',
-        accountNumberOrAddress: '+256 772 890 142 / Stanbic 90300189402',
-        network: 'MTN / Airtel Mobile Money / Bank Transfer',
-        instructions:
-          'Send $50 equivalent (or local currency). Set reference as "PROMPIPS-BOT". Paste transfer transaction code below.',
-        qrCodeUrl: '',
-        enabled: true,
-        createdAt: Date.now() - 86400000,
-      },
-    ],
+    paymentMethods: [...INITIAL_PAYMENT_METHODS],
     transactions: [],
     auditLog: [
       {
@@ -237,10 +221,15 @@ function generateInitialDatabase(): DatabaseSchema {
 
 class DatabaseManager {
   private data: DatabaseSchema;
+  private pgPool: pg.Pool | null = null;
+  public isPostgresConnected: boolean = false;
+  public postgresError: string | null = null;
+  public lastSaveError: string | null = null;
 
   constructor() {
     this.ensureDataDir();
-    this.data = this.load();
+    this.data = this.loadLocal();
+    this.initPostgres();
   }
 
   private ensureDataDir() {
@@ -249,16 +238,62 @@ class DatabaseManager {
     }
   }
 
-  private load(): DatabaseSchema {
+  // Filter legacy/unauthorized methods, ensuring strictly TRC20, ERC20, BTC
+  private sanitizePaymentMethods(methods: PaymentMethod[]): PaymentMethod[] {
+    const validMap = new Map<string, PaymentMethod>();
+
+    // Seed defaults
+    for (const initMethod of INITIAL_PAYMENT_METHODS) {
+      validMap.set(initMethod.id, { ...initMethod });
+    }
+
+    // Merge existing methods matching TRC20, ERC20, BTC
+    if (Array.isArray(methods)) {
+      for (const m of methods) {
+        const idLower = (m.id || '').toLowerCase();
+        const nameLower = (m.name || '').toLowerCase();
+
+        if (idLower === 'pm-trc20' || nameLower.includes('trc20') || nameLower.includes('tron')) {
+          const base = validMap.get('pm-trc20')!;
+          validMap.set('pm-trc20', {
+            ...base,
+            accountNumberOrAddress: m.accountNumberOrAddress || base.accountNumberOrAddress,
+            enabled: m.enabled !== undefined ? m.enabled : base.enabled,
+            instructions: m.instructions || base.instructions,
+          });
+        } else if (idLower === 'pm-erc20' || nameLower.includes('erc20') || nameLower.includes('ethereum')) {
+          const base = validMap.get('pm-erc20')!;
+          validMap.set('pm-erc20', {
+            ...base,
+            accountNumberOrAddress: m.accountNumberOrAddress || base.accountNumberOrAddress,
+            enabled: m.enabled !== undefined ? m.enabled : base.enabled,
+            instructions: m.instructions || base.instructions,
+          });
+        } else if (idLower === 'pm-btc' || nameLower.includes('btc') || nameLower.includes('bitcoin')) {
+          const base = validMap.get('pm-btc')!;
+          validMap.set('pm-btc', {
+            ...base,
+            accountNumberOrAddress: m.accountNumberOrAddress || base.accountNumberOrAddress,
+            enabled: m.enabled !== undefined ? m.enabled : base.enabled,
+            instructions: m.instructions || base.instructions,
+          });
+        }
+      }
+    }
+
+    return Array.from(validMap.values());
+  }
+
+  private loadLocal(): DatabaseSchema {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (parsed.admin && parsed.settings && parsed.pricing) {
-          // Upgrade schema to bcrypt hash if needed
+        if (parsed.admin && parsed.pricing) {
           if (!parsed.admin.passwordHash || !parsed.admin.passwordHash.startsWith('$2')) {
             parsed.admin.passwordHash = DEFAULT_ADMIN_PASSWORD_HASH;
           }
+          parsed.paymentMethods = this.sanitizePaymentMethods(parsed.paymentMethods);
           return parsed;
         }
       } else if (IS_VERCEL && fs.existsSync(SEED_FILE)) {
@@ -267,25 +302,125 @@ class DatabaseManager {
         if (!parsed.admin.passwordHash || !parsed.admin.passwordHash.startsWith('$2')) {
           parsed.admin.passwordHash = DEFAULT_ADMIN_PASSWORD_HASH;
         }
-        this.save(parsed);
+        parsed.paymentMethods = this.sanitizePaymentMethods(parsed.paymentMethods);
+        this.saveLocal(parsed);
         return parsed;
       }
     } catch (err) {
-      console.error('[DB] Failed to load DB file, initializing fresh store:', err);
+      console.error('[DB] Failed to load local DB file, initializing fresh store:', err);
     }
     const fresh = generateInitialDatabase();
-    this.save(fresh);
+    this.saveLocal(fresh);
     return fresh;
   }
 
-  private save(dataToSave?: DatabaseSchema) {
+  private async initPostgres() {
+    const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+    if (!connectionString) {
+      this.postgresError = 'POSTGRES_URL or DATABASE_URL environment variable is not configured.';
+      return;
+    }
+
+    try {
+      this.pgPool = new pg.Pool({
+        connectionString,
+        ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false },
+        connectionTimeoutMillis: 5000,
+      });
+
+      // Create persistence table
+      await this.pgPool.query(`
+        CREATE TABLE IF NOT EXISTS prompips_kv (
+          key VARCHAR(64) PRIMARY KEY,
+          data JSONB NOT NULL,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      // Attempt to load from PostgreSQL
+      const res = await this.pgPool.query(`SELECT data FROM prompips_kv WHERE key = 'app_state';`);
+      if (res.rows.length > 0 && res.rows[0].data) {
+        const dbState = res.rows[0].data as DatabaseSchema;
+        if (dbState.admin && dbState.pricing) {
+          dbState.paymentMethods = this.sanitizePaymentMethods(dbState.paymentMethods);
+          this.data = dbState;
+          this.saveLocal(this.data);
+          console.log('[DB] Successfully synced state from persistent PostgreSQL database.');
+        }
+      } else {
+        // Initial insert
+        await this.pgPool.query(
+          `INSERT INTO prompips_kv (key, data, updated_at) VALUES ('app_state', $1, NOW())
+           ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();`,
+          [JSON.stringify(this.data)]
+        );
+        console.log('[DB] Seeded initial state into persistent PostgreSQL database.');
+      }
+
+      this.isPostgresConnected = true;
+      this.postgresError = null;
+    } catch (err: any) {
+      this.isPostgresConnected = false;
+      this.postgresError = err.message || 'PostgreSQL connection failed.';
+      console.warn('[DB] PostgreSQL initialization notice:', this.postgresError);
+    }
+  }
+
+  private saveLocal(dataToSave?: DatabaseSchema) {
     try {
       this.ensureDataDir();
       const content = JSON.stringify(dataToSave || this.data, null, 2);
       fs.writeFileSync(DB_FILE, content, 'utf-8');
-    } catch (err) {
-      console.error('[DB] Error writing to DB file:', err);
+      if (IS_VERCEL) {
+        // Keep in memory and tmp
+      } else if (DB_FILE !== SEED_FILE && fs.existsSync(path.dirname(SEED_FILE))) {
+        try {
+          fs.writeFileSync(SEED_FILE, content, 'utf-8');
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err: any) {
+      console.error('[DB] Error writing to local DB file:', err);
+      this.lastSaveError = err.message || 'Local filesystem save error';
     }
+  }
+
+  public async save(): Promise<{ success: boolean; error?: string }> {
+    this.saveLocal();
+
+    if (this.pgPool && this.isPostgresConnected) {
+      try {
+        await this.pgPool.query(
+          `INSERT INTO prompips_kv (key, data, updated_at) VALUES ('app_state', $1, NOW())
+           ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW();`,
+          [JSON.stringify(this.data)]
+        );
+        this.lastSaveError = null;
+        return { success: true };
+      } catch (err: any) {
+        console.error('[DB] Error persisting to PostgreSQL:', err);
+        this.lastSaveError = err.message || 'PostgreSQL write error';
+        return { success: false, error: this.lastSaveError || undefined };
+      }
+    }
+
+    return { success: true };
+  }
+
+  public getStorageStatus() {
+    const hasPgUrl = Boolean(process.env.POSTGRES_URL || process.env.DATABASE_URL);
+    return {
+      type: this.isPostgresConnected ? 'postgres' : 'local_file',
+      connected: this.isPostgresConnected,
+      postgresConfigured: hasPgUrl,
+      lastSaveError: this.lastSaveError,
+      message: this.isPostgresConnected
+        ? 'PostgreSQL Database Connected (Full persistence across Vercel redeployments)'
+        : hasPgUrl
+        ? `PostgreSQL configured but connection failed: ${this.postgresError || 'Check credentials'}`
+        : 'Local Storage Active (Warning: For full persistence across Vercel redeployments, add POSTGRES_URL or DATABASE_URL in Vercel Project Settings)',
+    };
   }
 
   // --- ADMIN AUTH & SESSIONS ---
@@ -305,7 +440,6 @@ class DatabaseManager {
   ): { success: boolean; token?: string; error?: string } {
     const now = Date.now();
 
-    // Check lockout first
     const lockout = this.isLockedOut();
     if (lockout.locked) {
       return {
@@ -318,7 +452,6 @@ class DatabaseManager {
       process.env.ADMIN_USERNAME || this.data.admin.username || 'Prompipsboss';
     const isUsernameMatch = username === configuredUsername;
 
-    // Secure password comparison using bcrypt
     const storedHash = this.data.admin.passwordHash || DEFAULT_ADMIN_PASSWORD_HASH;
     let isPasswordMatch = false;
 
@@ -332,7 +465,6 @@ class DatabaseManager {
       }
     }
 
-    // Dummy compare to prevent timing side-channels if username is wrong
     if (!isUsernameMatch && isPasswordMatch) {
       try {
         bcrypt.compareSync(password, DEFAULT_ADMIN_PASSWORD_HASH);
@@ -342,13 +474,11 @@ class DatabaseManager {
     }
 
     if (isUsernameMatch && isPasswordMatch) {
-      // Clear failed attempts upon successful login
       this.data.admin.failedAttempts = [];
       this.data.admin.lockoutUntil = null;
 
-      // Create signed session token
       const token = signSessionToken(configuredUsername);
-      const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
+      const expiresAt = now + 24 * 60 * 60 * 1000;
       if (!this.data.admin.sessions) {
         this.data.admin.sessions = {};
       }
@@ -360,7 +490,6 @@ class DatabaseManager {
       return { success: true, token };
     }
 
-    // Record failed attempt
     const fifteenMinsAgo = now - 15 * 60 * 1000;
     this.data.admin.failedAttempts = (this.data.admin.failedAttempts || []).filter(
       (t) => t > fifteenMinsAgo
@@ -368,7 +497,7 @@ class DatabaseManager {
     this.data.admin.failedAttempts.push(now);
 
     if (this.data.admin.failedAttempts.length >= 5) {
-      this.data.admin.lockoutUntil = now + 15 * 60 * 1000; // 15 min lockout
+      this.data.admin.lockoutUntil = now + 15 * 60 * 1000;
       this.addAuditLog(
         'ADMIN_LOCKOUT',
         '5 failed login attempts recorded; locked out for 15 minutes.',
@@ -383,13 +512,11 @@ class DatabaseManager {
   public validateSession(token: string): boolean {
     if (!token) return false;
 
-    // Cryptographic signature & expiration validation
     const verified = verifySessionToken(token, this.data.admin.lastLogoutTimestamp);
     if (verified.valid) {
       return true;
     }
 
-    // Secondary map check
     if (this.data.admin.sessions && this.data.admin.sessions[token]) {
       const session = this.data.admin.sessions[token];
       if (Date.now() <= session.expiresAt) {
@@ -435,7 +562,6 @@ class DatabaseManager {
     if (this.data.auditLog.length > 150) {
       this.data.auditLog = this.data.auditLog.slice(0, 150);
     }
-    this.save();
   }
 
   public getAuditLog(): AuditLogEntry[] {
@@ -469,47 +595,133 @@ class DatabaseManager {
     return this.data.pricing;
   }
 
-  // --- PAYMENT METHODS ---
+  // --- PAYMENT METHODS (Strictly 3: TRC20, ERC20, BTC) ---
 
   public getPaymentMethods(all: boolean = false): PaymentMethod[] {
-    const methods = this.data.paymentMethods || [];
+    const methods = this.sanitizePaymentMethods(this.data.paymentMethods || []);
     if (all) return methods;
     return methods.filter((m) => m.enabled);
   }
 
-  public addPaymentMethod(method: Omit<PaymentMethod, 'id' | 'createdAt'>, actor: string): PaymentMethod {
-    const newMethod: PaymentMethod = {
-      ...method,
-      id: 'pm-' + crypto.randomUUID().slice(0, 8),
-      createdAt: Date.now(),
+  // Unified Payment Settings Update
+  public async updatePaymentSettings(
+    payload: {
+      price: number;
+      currency?: string;
+      trc20Enabled: boolean;
+      trc20Address: string;
+      trc20Instructions?: string;
+      erc20Enabled: boolean;
+      erc20Address: string;
+      erc20Instructions?: string;
+      btcEnabled: boolean;
+      btcAddress: string;
+      btcInstructions?: string;
+    },
+    actor: string
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
+    // 1. Validate Price
+    const numPrice = Number(payload.price);
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return { success: false, error: 'Subscription price must be a positive number.' };
+    }
+
+    // 2. Validate Addresses
+    const cleanTRC = (payload.trc20Address || '').trim();
+    const cleanERC = (payload.erc20Address || '').trim();
+    const cleanBTC = (payload.btcAddress || '').trim();
+
+    if (payload.trc20Enabled && !cleanTRC) {
+      return { success: false, error: 'TRC20 is enabled but wallet address is empty.' };
+    }
+    if (payload.trc20Enabled && (!cleanTRC.startsWith('T') || cleanTRC.length < 30 || cleanTRC.length > 40)) {
+      return { success: false, error: 'Invalid TRC20 address. TRON addresses start with "T" (e.g. TFNGqoaBdSvcNRYTv8pRPTyXARawuJTkUC).' };
+    }
+
+    if (payload.erc20Enabled && !cleanERC) {
+      return { success: false, error: 'ERC20 is enabled but wallet address is empty.' };
+    }
+    if (payload.erc20Enabled && (!cleanERC.startsWith('0x') || cleanERC.length !== 42)) {
+      return { success: false, error: 'Invalid ERC20 address. Ethereum addresses start with "0x" and are 42 characters long.' };
+    }
+
+    if (payload.btcEnabled && !cleanBTC) {
+      return { success: false, error: 'BTC is enabled but wallet address is empty.' };
+    }
+    if (
+      payload.btcEnabled &&
+      !(cleanBTC.startsWith('1') || cleanBTC.startsWith('3') || cleanBTC.startsWith('bc1'))
+    ) {
+      return { success: false, error: 'Invalid BTC address. Bitcoin addresses start with 1, 3, or bc1.' };
+    }
+
+    // At least one method must remain enabled
+    if (!payload.trc20Enabled && !payload.erc20Enabled && !payload.btcEnabled) {
+      return { success: false, error: 'At least one payment method (TRC20, ERC20, or BTC) must be enabled.' };
+    }
+
+    // Apply updates
+    this.data.pricing.price = numPrice;
+    if (payload.currency) {
+      this.data.pricing.currency = payload.currency.toUpperCase();
+    }
+
+    const currentMethods = this.sanitizePaymentMethods(this.data.paymentMethods);
+
+    // TRC20
+    const trcMethod = currentMethods.find((m) => m.id === 'pm-trc20');
+    if (trcMethod) {
+      trcMethod.enabled = payload.trc20Enabled;
+      trcMethod.accountNumberOrAddress = cleanTRC;
+      if (payload.trc20Instructions !== undefined) {
+        trcMethod.instructions = payload.trc20Instructions.trim();
+      }
+    }
+
+    // ERC20
+    const ercMethod = currentMethods.find((m) => m.id === 'pm-erc20');
+    if (ercMethod) {
+      ercMethod.enabled = payload.erc20Enabled;
+      ercMethod.accountNumberOrAddress = cleanERC;
+      if (payload.erc20Instructions !== undefined) {
+        ercMethod.instructions = payload.erc20Instructions.trim();
+      }
+    }
+
+    // BTC
+    const btcMethod = currentMethods.find((m) => m.id === 'pm-btc');
+    if (btcMethod) {
+      btcMethod.enabled = payload.btcEnabled;
+      btcMethod.accountNumberOrAddress = cleanBTC;
+      if (payload.btcInstructions !== undefined) {
+        btcMethod.instructions = payload.btcInstructions.trim();
+      }
+    }
+
+    this.data.paymentMethods = currentMethods;
+
+    this.addAuditLog(
+      'PAYMENT_SETTINGS_UPDATE',
+      `Updated payment settings: Price=$${numPrice}, TRC20=${payload.trc20Enabled}, ERC20=${payload.erc20Enabled}, BTC=${payload.btcEnabled}`,
+      actor
+    );
+
+    const saveResult = await this.save();
+    if (!saveResult.success) {
+      return {
+        success: false,
+        error: `Database persistence error: ${saveResult.error}. Changes were saved to local memory only.`,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        pricing: this.data.pricing,
+        paymentMethods: this.getPaymentMethods(true),
+        storageStatus: this.getStorageStatus(),
+      },
     };
-    this.data.paymentMethods.push(newMethod);
-    this.addAuditLog('PAYMENT_METHOD_ADDED', `Added payment method: ${newMethod.name}`, actor);
-    this.save();
-    return newMethod;
-  }
-
-  public updatePaymentMethod(id: string, updates: Partial<PaymentMethod>, actor: string): PaymentMethod | null {
-    const idx = this.data.paymentMethods.findIndex((m) => m.id === id);
-    if (idx === -1) return null;
-    this.data.paymentMethods[idx] = { ...this.data.paymentMethods[idx], ...updates };
-    this.addAuditLog('PAYMENT_METHOD_UPDATED', `Updated payment method: ${this.data.paymentMethods[idx].name}`, actor);
-    this.save();
-    return this.data.paymentMethods[idx];
-  }
-
-  public deletePaymentMethod(id: string, actor: string): boolean {
-    const idx = this.data.paymentMethods.findIndex((m) => m.id === id);
-    if (idx === -1) return false;
-    const name = this.data.paymentMethods[idx].name;
-    this.data.paymentMethods.splice(idx, 1);
-    this.addAuditLog('PAYMENT_METHOD_DELETED', `Deleted payment method: ${name}`, actor);
-    this.save();
-    return true;
-  }
-
-  public togglePaymentMethod(id: string, enabled: boolean, actor: string): PaymentMethod | null {
-    return this.updatePaymentMethod(id, { enabled }, actor);
   }
 
   // --- TRANSACTIONS ---
@@ -528,7 +740,7 @@ class DatabaseManager {
   public recordTransaction(
     txId: string,
     amount: number,
-    paymentMethodName: string = 'Crypto / Mobile Money',
+    paymentMethodName: string = 'Cryptocurrency',
     status: 'pending' | 'verified' = 'verified'
   ): TransactionRecord {
     const normalized = txId.trim();
@@ -593,19 +805,15 @@ class DatabaseManager {
     return this.data.botSettings;
   }
 
-  // --- PUBLIC CONFIG (Safe for unauthenticated visitors) ---
+  // --- PUBLIC CONFIG (Safe for unauthenticated visitors — NO SUPPORT CONTACTS) ---
 
   public getPublicConfig() {
     return {
       websiteName: this.data.settings.websiteName,
       websiteDescription: this.data.settings.websiteDescription,
-      contactEmail: this.data.settings.contactEmail,
-      whatsappSupport: this.data.settings.whatsappSupport,
-      telegramSupport: this.data.settings.telegramSupport,
-      otherSupport: this.data.settings.otherSupport,
       price: this.data.pricing.price,
       currency: this.data.pricing.currency,
-      paymentMethods: this.getPaymentMethods(false), // ONLY enabled methods!
+      paymentMethods: this.getPaymentMethods(false), // ONLY enabled methods among TRC20, ERC20, BTC
       botActivationEnabled: this.data.botSettings.botActivationEnabled,
       publicStatusMessage: this.data.botSettings.publicStatusMessage,
       displayName: this.data.botSettings.displayName,

@@ -22,8 +22,23 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
   onPaymentSuccess,
   onStartBotRequested,
 }) => {
+  // Filter for TRC20, ERC20, BTC
+  const activeMethods = paymentMethods.filter(
+    (m) =>
+      m.enabled &&
+      (m.id === 'pm-trc20' ||
+        m.id === 'pm-erc20' ||
+        m.id === 'pm-btc' ||
+        m.name.includes('TRC') ||
+        m.name.includes('ERC') ||
+        m.name.includes('BTC') ||
+        m.name.includes('Bitcoin'))
+  );
+
+  const displayMethods = activeMethods.length > 0 ? activeMethods : paymentMethods;
+
   const [selectedMethodId, setSelectedMethodId] = useState<string>(
-    paymentMethods.length > 0 ? paymentMethods[0].id : ''
+    displayMethods.length > 0 ? displayMethods[0].id : ''
   );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [txIdInput, setTxIdInput] = useState('');
@@ -36,7 +51,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
   if (!isOpen) return null;
 
   const currentMethod =
-    paymentMethods.find((m) => m.id === selectedMethodId) || paymentMethods[0] || null;
+    displayMethods.find((m) => m.id === selectedMethodId) || displayMethods[0] || null;
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -48,7 +63,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
     e.preventDefault();
     if (!txIdInput.trim()) {
       setVerificationStatus('failed');
-      setStatusMessage('Please enter the correct transaction ID');
+      setStatusMessage('Please enter the correct transaction ID of payment');
       return;
     }
 
@@ -66,11 +81,11 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
         }
       } else {
         setVerificationStatus('failed');
-        setStatusMessage(res.message || 'Please enter the correct transaction ID');
+        setStatusMessage('Please enter the correct transaction ID of payment');
       }
-    } catch (err: any) {
+    } catch {
       setVerificationStatus('failed');
-      setStatusMessage(err.message || 'Please enter the correct transaction ID');
+      setStatusMessage('Please enter the correct transaction ID of payment');
     } finally {
       setIsVerifying(false);
     }
@@ -94,7 +109,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,42 +130,42 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
           </div>
         </div>
 
-        {/* Configured Payment Methods Tabs (Only Enabled Methods Shown to Visitors) */}
-        {paymentMethods.length > 0 ? (
+        {/* Configured Payment Methods Tabs (Strictly 3 methods: TRC20, ERC20, BTC) */}
+        {displayMethods.length > 0 ? (
           <div className="mt-4">
             <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 mb-2 font-semibold">
-              Select Configured Payment Method:
+              Select Cryptocurrency Payment Method:
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {paymentMethods.map((pm) => (
+            <div className="grid grid-cols-3 gap-2">
+              {displayMethods.map((pm) => (
                 <button
                   type="button"
                   key={pm.id}
                   onClick={() => setSelectedMethodId(pm.id)}
-                  className={`py-2 px-2.5 rounded-xl text-xs font-mono flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer ${
-                    (currentMethod?.id === pm.id)
-                      ? 'bg-cyan-950/80 border-[#00f2fe] text-[#00f2fe] shadow-md shadow-cyan-950/50'
+                  className={`py-2.5 px-2 rounded-xl text-xs font-mono flex flex-col items-center justify-center gap-1 border transition-all cursor-pointer ${
+                    currentMethod?.id === pm.id
+                      ? 'bg-cyan-950/80 border-[#00f2fe] text-[#00f2fe] shadow-md shadow-cyan-950/50 ring-1 ring-[#00f2fe]/40'
                       : 'bg-[#0f0a24] border-purple-900/60 text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <span className="font-bold text-[11px] truncate max-w-full">{pm.name}</span>
-                  {pm.network && <span className="text-[9px] text-purple-300 truncate max-w-full">{pm.network}</span>}
+                  <span className="font-bold text-xs truncate max-w-full">{pm.name}</span>
+                  {pm.network && (
+                    <span className="text-[9px] text-cyan-300 truncate max-w-full font-semibold">
+                      {pm.network}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
           </div>
-        ) : (
-          <div className="mt-4 p-3 rounded-xl bg-amber-950/40 border border-amber-600/40 text-xs font-mono text-amber-200">
-            Payment methods are currently being updated by the administrator. Please contact support.
-          </div>
-        )}
+        ) : null}
 
-        {/* Payment Instructions Details */}
+        {/* Payment Instructions Details with Network Name */}
         {currentMethod && (
           <div className="mt-4 p-4 rounded-2xl bg-[#061822]/90 border border-cyan-800/40 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono text-purple-300 tracking-wider uppercase">
-                {currentMethod.name} — {currentMethod.accountHolder ? `Recipient: ${currentMethod.accountHolder}` : 'Official Destination'}
+                {currentMethod.name} — <strong className="text-cyan-300">{currentMethod.network}</strong>
               </span>
               <span className="text-[10px] font-mono text-[#00f59b] bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
                 Amount: ${price}.00 {currency}
@@ -165,7 +180,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
                 type="button"
                 onClick={() => handleCopy(currentMethod.accountNumberOrAddress, currentMethod.id)}
                 className="p-2 rounded-lg bg-cyan-950/60 border border-cyan-500/30 text-[#00f2fe] hover:bg-cyan-900/40 transition-colors shrink-0 cursor-pointer"
-                title="Copy details"
+                title="Copy address"
               >
                 {copiedKey === currentMethod.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               </button>
@@ -183,7 +198,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
         <form onSubmit={handleVerify} className="mt-5 space-y-3">
           <div>
             <label className="block text-[11px] font-mono uppercase tracking-wider text-[#00f2fe] mb-1.5 font-semibold">
-              TRANSACTION ID / REFERENCE
+              TRANSACTION ID / HASH
             </label>
             <div className="relative">
               <input
@@ -196,7 +211,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
               />
             </div>
             <p className="text-[10px] text-purple-400/80 mt-1">
-              Obtain the TxID/Reference from your wallet (Binance, TrustWallet, TronLink) or banking app.
+              Obtain the TxID from your crypto wallet (Binance, TrustWallet, TronLink, Kraken, etc.).
             </p>
           </div>
 
@@ -237,7 +252,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
                 {isVerifying ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    VERIFYING SERVER-SIDE...
+                    VERIFYING...
                   </>
                 ) : (
                   'VERIFY PAYMENT'
@@ -260,7 +275,7 @@ export const PaymentGateModal: React.FC<PaymentGateModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-2 text-center text-xs text-purple-400 hover:text-purple-200 transition-colors"
+              className="w-full py-2 text-center text-xs text-purple-400 hover:text-purple-200 transition-colors cursor-pointer"
             >
               Close & Return to Dashboard
             </button>
